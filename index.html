@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Porodično Stablo Spasić</title>
+    <style>
+        body {
+            font-family: 'Calibri', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #app-header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-left: 5px solid #2F5496;
+            max-width: 320px;
+        }
+
+        #app-header h1 {
+            margin: 0 0 5px 0;
+            font-size: 20px;
+            color: #2F5496;
+            font-weight: bold;
+        }
+
+        #app-header p {
+            margin: 0;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        #search-box {
+            margin-top: 12px;
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #dcdde1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            outline: none;
+            font-size: 13px;
+        }
+
+        #search-box:focus {
+            border-color: #2F5496;
+        }
+
+        /* Kontrole za zumiranje */
+        #zoom-controls {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .zoom-btn {
+            width: 45px;
+            height: 45px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            font-size: 20px;
+            font-weight: bold;
+            color: #2F5496;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+            transition: background 0.2s;
+        }
+
+        .zoom-btn:active {
+            background: #e1f5fe;
+        }
+
+        /* Beskonačno platno za stablo */
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            cursor: grab;
+            overflow: hidden;
+        }
+
+        #viewport:active {
+            cursor: grabbing;
+        }
+
+        #canvas {
+            position: absolute;
+            transform-origin: 0 0;
+            will-change: transform;
+            padding: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 150px;
+            align-items: center;
+        }
+
+        /* Generacijski nivoi */
+        .generation {
+            display: flex;
+            justify-content: center;
+            gap: 120px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Porodične grupe */
+        .family-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .parents {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            align-items: center;
+        }
+
+        /* Kartice članova */
+        .node {
+            width: 260px;
+            height: 80px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+            border: 2px solid #2F5496;
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            box-sizing: border-box;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(47, 84, 150, 0.15);
+        }
+
+        .node.female {
+            border-color: #C00000;
+        }
+
+        .node.deceased {
+            border-color: #7f8c8d;
+            background-color: #f8f9fa;
+        }
+
+        /* Slike i okviri */
+        .avatar-container {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-right: 12px;
+            border: 2px solid #2F5496;
+            background: #f1f2f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .node.female .avatar-container {
+            border-color: #C00000;
+        }
+
+        .node.deceased .avatar-container {
+            border-color: #7f8c8d;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .avatar-placeholder {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2F5496;
+        }
+
+        .node.female .avatar-placeholder {
+            color: #C00000;
+        }
+
+        .node.deceased .avatar-placeholder {
+            color: #7f8c8d;
+        }
+
+        /* Informacije o članu */
+        .info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dates {
+            font-size: 11px;
+            color: #7f8c8d;
+        }
+
+        /* Tačke spajanja supružnika i linije */
+        .marriage-connector {
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background-color: #7f8c8d;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Detalji (Modal) */
+        #detail-modal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: white;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+            padding: 25px;
+            box-sizing: border-box;
+        }
+
+        #modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.4);
+            z-index: 199;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #2F5496;
+            margin-right: 15px;
+            object-fit: cover;
+        }
+
+        .modal-title h2 {
+            margin: 0 0 5px 0;
+            font-size: 20px;
+            color: #2c3e50;
+        }
+
+        .modal-title p {
+            margin: 0;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .modal-body p {
+            font-size: 14px;
+            color: #34495e;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+
+        .close-btn {
+            float: right;
+            background: #2F5496;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            outline: none;
+            font-weight: bold;
+        }
+
+        /* Istaknuto pretragu */
+        .highlighted {
+            animation: pulse 1.5s infinite;
+            border-width: 4px;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(47, 84, 150, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(47, 84, 150, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(47, 84, 150, 0); }
+        }
+
+        /* SVG za linije povezivanja */
+        #svg-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-header">
+        <h1>Porodica Spasić</h1>
+        <p>Interaktivno stablo sa fotografijama</p>
+        <input type="text" id="search-box" placeholder="Pretraži članove (npr. Todor)..." oninput="searchMembers()">
+    </div>
+
+    <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoom(0.1)">+</button>
+        <button class="zoom-btn" onclick="zoom(-0.1)">-</button>
+        <button class="zoom-btn" onclick="resetView()">⟲</button>
+    </div>
+
+    <div id="viewport">
+        <div id="canvas">
+            <svg id="svg-lines"></svg>
+            
+            <!-- Generacija 1 -->
+            <div class="generation" id="gen1"></div>
+
+            <!-- Generacija 2 -->
+            <div class="generation" id="gen2"></div>
+
+            <!-- Generacija 3 -->
+            <div class="generation" id="gen3"></div>
+
+            <!-- Generacija 4 -->
+            <div class="generation" id="gen4"></div>
+
+            <!-- Generacija 5 -->
+            <div class="generation" id="gen5"></div>
+
+            <!-- Generacija 6 -->
+            <div class="generation" id="gen6"></div>
+
+            <!-- Generacija 7 -->
+            <div class="generation" id="gen7"></div>
+        </div>
+    </div>
+
+    <div id="modal-overlay" onclick="closeModal()"></div>
+    <div id="detail-modal">
+        <div class="modal-header">
+            <img id="modal-img" class="modal-avatar" src="" alt="">
+            <div class="modal-title">
+                <h2 id="modal-name"></h2>
+                <p id="modal-dates"></p>
+            </div>
+        </div>
+        <div class="modal-body">
+            <p><strong>Istorijske beleške:</strong></p>
+            <p id="modal-notes"></p>
+        </div>
+        <div style="margin-top: 20px; overflow: auto;">
+            <button class="close-btn" onclick="closeModal()">Zatvori</button>
+        </div>
+    </div>
+
+    <script>
+        // Svi podaci prosleđeni iz Python-a
+        const individuals = [{"id": "@I211@", "name": "Spasa Spasić", "gender": "M", "birth": "1840", "death": "1872", "notes": "Deda Todora Spasića. Praotac.", "photo": null}, {"id": "@I213@", "name": "N.N Spasić", "gender": "F", "birth": "", "death": "", "notes": "Supruga Spase Spasića.", "photo": null}, {"id": "@I21@", "name": "Stefan Spasić", "gender": "M", "birth": "1864", "death": "1924", "notes": "Obućar iz Bitolja. Rođen u selu Bukovo.", "photo": "Slike_Spasica/Stefan_Spasic_I21.jpg"}, {"id": "@I22@", "name": "Vasilija Bojadžijeva", "gender": "F", "birth": "1862", "death": "1934", "notes": "Supruga Stefana Spasića.", "photo": "Slike_Spasica/Vasilija_Bojadjijeva_I22.jpg"}, {"id": "@I96@", "name": "Jelena Spasić", "gender": "F", "birth": "1893", "death": "1955", "notes": "Sestra Todora Spasića. Udata Sremčević.", "photo": "Slike_Spasica/Jelena_Spasic_I96.jpg"}, {"id": "@I149@", "name": "Joakim Sremčević", "gender": "M", "birth": "", "death": "", "notes": "Suprug Jelene Spasić.", "photo": null}, {"id": "@I23@", "name": "Lazar Stefanović", "gender": "M", "birth": "1889", "death": "1936", "notes": "Apotekar pri vojsci Kraljevine Jugoslavije. Sin Stefana Spasića (Lazar je promenio prezime u Stefanović).", "photo": "Slike_Spasica/Lazar_Stefanovic_I23.jpg"}, {"id": "@I162@", "name": "Živka Stefanović", "gender": "F", "birth": "1898", "death": "1986", "notes": "Supruga Lazara Stefanovića.", "photo": "Slike_Spasica/Zivka_(Stefanovic)_I162.jpg"}, {"id": "@I1@", "name": "Todor Spasić", "gender": "M", "birth": "1902", "death": "1989", "notes": "Dipl. inž. Rođen u Bitolju, živeo u Beogradu.", "photo": null}, {"id": "@I2@", "name": "Vera Ivanova", "gender": "F", "birth": "1904", "death": "1983", "notes": "Supruga Todora Spasića. Rođena u Prilepu.", "photo": "Slike_Spasica/Vera_Ivanova_I2.jpg"}, {"id": "@I98@", "name": "Ivanka Sremčević", "gender": "F", "birth": "1916", "death": "2006", "notes": "Ćerka Jelene Spasić. Udata Arabadjijeva.", "photo": "Slike_Spasica/Ivanka_Sremcevic_I98.jpg"}, {"id": "@I100@", "name": "Ivan Arabadjijev", "gender": "M", "birth": "1900", "death": "1972", "notes": "Suprug Ivanke Sremčević.", "photo": "Slike_Spasica/Ivan_Arabadjijev_I100.jpg"}, {"id": "@I25@", "name": "Milka Stefanović", "gender": "F", "birth": "1923", "death": "", "notes": "Ćerka Lazara Stefanovića. Udata Maksimović.", "photo": "Slike_Spasica/Milka_Stefanović_I25.jpg"}, {"id": "@I26@", "name": "Dragomir Maksimović", "gender": "M", "birth": "1917", "death": "1986", "notes": "Suprug Milke Stefanović.", "photo": null}, {"id": "@I29@", "name": "Radmila Stefanović", "gender": "F", "birth": "1924", "death": "2007", "notes": "Ćerka Lazara. Udata Nikolić.", "photo": "Slike_Spasica/Radmila_Stefanovic_I29.jpg"}, {"id": "@I30@", "name": "Tadija Nikolić", "gender": "M", "birth": "1925", "death": "", "notes": "Suprug Radmile Stefanovića.", "photo": "Slike_Spasica/Tadija_Nikolic_I30.jpg"}, {"id": "@I3@", "name": "Aleksandar Spasić", "gender": "M", "birth": "1929", "death": "2019", "notes": "Dipl. inž. Rođen u Bitolju, osnivač porodičnog sajta.", "photo": "Slike_Spasica/Aleksandar_Spasic_I3.jpg"}, {"id": "@I53@", "name": "Olivera Bauk", "gender": "F", "birth": "1929", "death": "2019", "notes": "Supruga Aleksandra. Radila u Društvu inženjera i tehničara.", "photo": "Slike_Spasica/Olivera_Bauk_I53.jpg"}, {"id": "@I4@", "name": "Radmila Spasić", "gender": "F", "birth": "1931", "death": "", "notes": "Dr. Ćerka Todora i Vere. Udata Klašnja.", "photo": "Slike_Spasica/Radmila_Spasić_I4.jpg"}, {"id": "@I12@", "name": "Aleksandar Klašnja", "gender": "M", "birth": "1931", "death": "", "notes": "Dr. Suprug Radmile Spasić.", "photo": "Slike_Spasica/Aleksandar_Klasnja_I12.jpg"}, {"id": "@I5@", "name": "Nada Spasić", "gender": "F", "birth": "1934", "death": "2015", "notes": "Zubotehničar. Državna reprezentativka u gimnastici (OI Helsinki 1952).", "photo": "Slike_Spasica/Nada_Spasić_I5.jpg"}, {"id": "@I6@", "name": "Borislav Ćurčić", "gender": "M", "birth": "1932", "death": "2015", "notes": "Suprug Nade Spasić.", "photo": "Slike_Spasica/Borislav_Ćurčić_I6.jpg"}, {"id": "@I500015@", "name": "Đorđe Arabadjijev", "gender": "M", "birth": "", "death": "", "notes": "Sin Ivanke i Ivana Arabadjijeva.", "photo": "Slike_Spasica/Djordje_Arabadjijev_I500015.jpg"}, {"id": "@I27@", "name": "Zoran Maksimović", "gender": "M", "birth": "1950", "death": "", "notes": "Sin Milke i Dragomira.", "photo": null}, {"id": "@I28@", "name": "Tatjana Maksimović", "gender": "F", "birth": "1946", "death": "", "notes": "Ćerka Milke i Dragomira.", "photo": null}, {"id": "@I161@", "name": "Dejan Nikolić", "gender": "M", "birth": "1970", "death": "", "notes": "Sin Radmile i Tadije.", "photo": null}, {"id": "@I54@", "name": "Zoran Spasić", "gender": "M", "birth": "1953", "death": "2010", "notes": "Sin Aleksandra i Olivere. Preminuo od ciroze jetre.", "photo": "Slike_Spasica/Zoran_Spasic_I54.jpg"}, {"id": "@I56@", "name": "Gorana Rašeta", "gender": "F", "birth": "1963", "death": "", "notes": "Druga supruga Zorana Spasića.", "photo": "Slike_Spasica/Gorana_Raseta_I56.jpg"}, {"id": "@I244@", "name": "Nataša Cvetanović", "gender": "F", "birth": "1958", "death": "", "notes": "Prva supruga Zorana Spasića.", "photo": "Slike_Spasica/Natasa_Cvetanovic_I244.jpg"}, {"id": "@I59@", "name": "Vladimir Spasić", "gender": "M", "birth": "1964", "death": "", "notes": "Vladiša. Sin Aleksandra i Olivere.", "photo": "Slike_Spasica/Vladimir_Spasic_I59.jpg"}, {"id": "@I60@", "name": "Tanja Dragićević", "gender": "F", "birth": "1963", "death": "", "notes": "Supruga Vladimira Spasića.", "photo": "Slike_Spasica/Tanja_Dragicevic_I60.jpg"}, {"id": "@I11@", "name": "Ena Klašnja", "gender": "F", "birth": "1959", "death": "", "notes": "Ćerka Radmile i Aleksandra. Udata Carroll.", "photo": "Slike_Spasica/Ena_Klasnja_I11.jpg"}, {"id": "@I14@", "name": "David Carroll", "gender": "M", "birth": "1956", "death": "", "notes": "Suprug Ene Klašnje.", "photo": "Slike_Spasica/David_Carroll_I14.jpg"}, {"id": "@I13@", "name": "Maya Klašnja", "gender": "F", "birth": "1963", "death": "", "notes": "Ćerka Radmile i Aleksandra. Udata Tester.", "photo": "Slike_Spasica/Maya_Klasnja_I13.jpg"}, {"id": "@I18@", "name": "Peter Tester", "gender": "M", "birth": "1963", "death": "", "notes": "Suprug Maje Klašnje.", "photo": "Slike_Spasica/Peter_Tester_I18.jpg"}, {"id": "@I7@", "name": "Ivana Ćurčić", "gender": "F", "birth": "1961", "death": "", "notes": "Ćerka Nade i Borislava. Udata Gordy.", "photo": "Slike_Spasica/Ivana_Ćurčić_I7.jpg"}, {"id": "@I10@", "name": "Eric Gordy", "gender": "M", "birth": "1966", "death": "", "notes": "Dr. Predavač na UCL u Londonu. Suprug Ivane Ćurčić.", "photo": "Slike_Spasica/Eric_Gordy_I10.jpg"}, {"id": "@I58@", "name": "Luka Spasić", "gender": "M", "birth": "1995", "death": "", "notes": "Sin Zorana i Gorane. Veoma visok (196cm).", "photo": "Slike_Spasica/Luka_Spasic_I58.jpg"}, {"id": "@I245@", "name": "Ognjen Spasić", "gender": "M", "birth": "1984", "death": "", "notes": "Sin Zorana i Nataše.", "photo": "Slike_Spasica/Ognjen_Spasic_I245.jpg"}, {"id": "@I246@", "name": "Milica Stanković", "gender": "F", "birth": "1985", "death": "", "notes": "Supruga Ognjena Spasića.", "photo": "Slike_Spasica/Milica_Stankovic_I246.jpg"}, {"id": "@I61@", "name": "Todor Spasić (Tošica)", "gender": "M", "birth": "1988", "death": "", "notes": "Tošica. Sin Vladimira i Tanje.", "photo": "Slike_Spasica/Todor_Spasic_I61.jpg"}, {"id": "@I62@", "name": "Silvana Spasić", "gender": "F", "birth": "1991", "death": "", "notes": "Ćerka Vladimira i Tanje.", "photo": "Slike_Spasica/Silvana_Spasic_I62.jpg"}, {"id": "@I15@", "name": "Maya Rose", "gender": "F", "birth": "1986", "death": "", "notes": "Ćerka Ene i Dejvida. Udata Baudinet.", "photo": "Slike_Spasica/Maya_Rose_I15.jpg"}, {"id": "@I500142@", "name": "Brett Raina Baudinet", "gender": "M", "birth": "1981", "death": "", "notes": "Suprug Maje Rouz.", "photo": null}, {"id": "@I16@", "name": "Elizabeth", "gender": "F", "birth": "1988", "death": "", "notes": "Ćerka Ene i Dejvida. Udata Newman.", "photo": "Slike_Spasica/Elizabeth_I16.jpg"}, {"id": "@I500135@", "name": "Edward Paul Newman", "gender": "M", "birth": "1987", "death": "", "notes": "Suprug Elizabete.", "photo": null}, {"id": "@I17@", "name": "Frances Carroll", "gender": "F", "birth": "1993", "death": "", "notes": "Ćerka Ene i Dejvida.", "photo": "Slike_Spasica/Frances_Carroll_I17.jpg"}, {"id": "@I19@", "name": "Annalisa Claire Tester", "gender": "F", "birth": "1992", "death": "", "notes": "Bliznakinja. Ćerka Maje i Pitera. Udata Ginsburg.", "photo": "Slike_Spasica/Annalisa_Claire_Tester_I19.jpg"}, {"id": "@I500181@", "name": "Joseph Ginsburg", "gender": "M", "birth": "1992", "death": "", "notes": "Suprug Analise.", "photo": null}, {"id": "@I146@", "name": "Kristina Tester", "gender": "F", "birth": "1992", "death": "", "notes": "Bliznakinja. Ćerka Maje i Pitera. Udata Chien.", "photo": "Slike_Spasica/Kristina_Tester_I146.jpg"}, {"id": "@I500180@", "name": "Eric Chien", "gender": "M", "birth": "1991", "death": "", "notes": "Suprug Kristine Tester.", "photo": null}, {"id": "@I9@", "name": "Azra Milena Gordy", "gender": "F", "birth": "1996", "death": "", "notes": "Ćerka Ivane i Erika.", "photo": "Slike_Spasica/Azra_Milena_Gordy_I9.jpg"}, {"id": "@I500151@", "name": "Strahinja Spasić", "gender": "M", "birth": "2012", "death": "", "notes": "Sin Ognjena i Milice.", "photo": "Slike_Spasica/Strahinja_Spasic_I500151.jpg"}, {"id": "@I500154@", "name": "Anja Spasić", "gender": "F", "birth": "2019", "death": "", "notes": "Ćerka Ognjena i Milice.", "photo": "Slike_Spasica/Anja_Spasic_I500154.jpg"}, {"id": "@I500153@", "name": "Blake Raina Baudinet", "gender": "M", "birth": "2018", "death": "", "notes": "Sin Maje Rouz i Breta.", "photo": "Slike_Spasica/Blake_Raina_Baudinet_I500153.jpg"}, {"id": "@I500160@", "name": "Jackson David Newman", "gender": "M", "birth": "2020", "death": "", "notes": "Sin Elizabete i Edvarda.", "photo": "Slike_Spasica/Jackson_David_Newman_I500160.jpg"}, {"id": "@I500182@", "name": "Theodore Robert Chien", "gender": "M", "birth": "2023", "death": "", "notes": "Sin Kristine i Erika.", "photo": null}];
+        const families = [{"id": "@F76@", "husband": "@I211@", "wife": "@I213@", "children": ["@I21@"]}, {"id": "@F7@", "husband": "@I21@", "wife": "@I22@", "children": ["@I1@", "@I23@", "@I96@"]}, {"id": "@F34@", "husband": "@I149@", "wife": "@I96@", "children": ["@I98@"]}, {"id": "@F8@", "husband": "@I23@", "wife": "@I162@", "children": ["@I25@", "@I29@"]}, {"id": "@F1@", "husband": "@I1@", "wife": "@I2@", "children": ["@I3@", "@I4@", "@I5@"]}, {"id": "@F35@", "husband": "@I100@", "wife": "@I98@", "children": ["@I500015@"]}, {"id": "@F9@", "husband": "@I26@", "wife": "@I25@", "children": ["@I28@", "@I27@"]}, {"id": "@F10@", "husband": "@I30@", "wife": "@I29@", "children": ["@I161@"]}, {"id": "@F20@", "husband": "@I3@", "wife": "@I53@", "children": ["@I54@", "@I59@"]}, {"id": "@F4@", "husband": "@I12@", "wife": "@I4@", "children": ["@I11@", "@I13@"]}, {"id": "@F2@", "husband": "@I6@", "wife": "@I5@", "children": ["@I7@"]}, {"id": "@F22@", "husband": "@I54@", "wife": "@I56@", "children": ["@I58@"]}, {"id": "@F80@", "husband": "@I54@", "wife": "@I244@", "children": ["@I245@"]}, {"id": "@F23@", "husband": "@I59@", "wife": "@I60@", "children": ["@I61@", "@I62@"]}, {"id": "@F5@", "husband": "@I14@", "wife": "@I11@", "children": ["@I15@", "@I16@", "@I17@"]}, {"id": "@F6@", "husband": "@I18@", "wife": "@I13@", "children": ["@I19@", "@I146@"]}, {"id": "@F3@", "husband": "@I10@", "wife": "@I7@", "children": ["@I9@"]}, {"id": "@F81@", "husband": "@I245@", "wife": "@I246@", "children": ["@I500151@", "@I500154@"]}, {"id": "@F500112@", "husband": "@I500142@", "wife": "@I15@", "children": ["@I500153@"]}, {"id": "@F500105@", "husband": "@I500135@", "wife": "@I16@", "children": ["@I500160@"]}, {"id": "@F500127@", "husband": "@I500181@", "wife": "@I19@", "children": []}, {"id": "@F500126@", "husband": "@I500180@", "wife": "@I146@", "children": ["@I500182@"]}];
+
+        // Konfiguracija generisanja generacija
+        const genMapping = {
+            "@I211@": 1, "@I213@": 1,
+            "@I21@": 2, "@I22@": 2, "@I96@": 2, "@I149@": 2, "@I23@": 2, "@I162@": 2,
+            "@I1@": 3, "@I2@": 3, "@I98@": 3, "@I100@": 3, "@I25@": 3, "@I26@": 3, "@I29@": 3, "@I30@": 3,
+            "@I3@": 4, "@I53@": 4, "@I4@": 4, "@I12@": 4, "@I5@": 4, "@I6@": 4, "@I500015@": 4, "@I27@": 4, "@I28@": 4, "@I161@": 4,
+            "@I54@": 5, "@I56@": 5, "@I244@": 5, "@I59@": 5, "@I60@": 5, "@I11@": 5, "@I14@": 5, "@I13@": 5, "@I18@": 5, "@I7@": 5, "@I10@": 5,
+            "@I58@": 6, "@I245@": 6, "@I246@": 6, "@I61@": 6, "@I62@": 6, "@I15@": 6, "@I500142@": 6, "@I16@": 6, "@I500135@": 6, "@I17@": 6, "@I19@": 6, "@I500181@": 6, "@I146@": 6, "@I500180@": 6, "@I9@": 6,
+            "@I500151@": 7, "@I500154@": 7, "@I500153@": 7, "@I500160@": 7, "@I500182@": 7
+        };
+
+        // Renderovanje svih čvorova u generacije
+        function renderTree() {
+            // Grupisanje individua po generacijama
+            const genContainers = {
+                1: document.getElementById('gen1'),
+                2: document.getElementById('gen2'),
+                3: document.getElementById('gen3'),
+                4: document.getElementById('gen4'),
+                5: document.getElementById('gen5'),
+                6: document.getElementById('gen6'),
+                7: document.getElementById('gen7')
+            };
+
+            // Prvo renderujemo porodične jedinice (supružnike spojene)
+            families.forEach(fam => {
+                const husb = individuals.find(i => i.id === fam.husband);
+                const wife = individuals.find(i => i.id === fam.wife);
+                
+                if (husb || wife) {
+                    const gen = husb ? genMapping[husb.id] : genMapping[wife.id];
+                    const famUnit = document.createElement('div');
+                    famUnit.className = 'family-unit';
+                    famUnit.id = 'fam_unit_' + fam.id.replace(/@/g, '');
+
+                    const parentsDiv = document.createElement('div');
+                    parentsDiv.className = 'parents';
+
+                    if (husb) parentsDiv.appendChild(createNode(husb));
+                    if (wife) parentsDiv.appendChild(createNode(wife));
+
+                    famUnit.appendChild(parentsDiv);
+                    if (genContainers[gen]) {
+                        genContainers[gen].appendChild(famUnit);
+                    }
+                }
+            });
+
+            // Dodajemo i samce koji nisu u brakovima
+            individuals.forEach(ind => {
+                const isRendered = document.getElementById('node_' + ind.id.replace(/@/g, ''));
+                if (!isRendered) {
+                    const gen = genMapping[ind.id] || 4;
+                    const famUnit = document.createElement('div');
+                    famUnit.className = 'family-unit';
+                    famUnit.appendChild(createNode(ind));
+                    if (genContainers[gen]) {
+                        genContainers[gen].appendChild(famUnit);
+                    }
+                }
+            });
+
+            // Sačekaj da se sve iscrta, pa nacrtaj spojne linije
+            setTimeout(drawLines, 100);
+        }
+
+        function createNode(ind) {
+            const div = document.createElement('div');
+            const cleanId = ind.id.replace(/@/g, '');
+            div.className = 'node';
+            div.id = 'node_' + cleanId;
+            if (ind.gender === 'F') div.classList.add('female');
+            if (ind.death || ind.id === '@I21@' || ind.id === '@I22@') div.classList.add('deceased');
+
+            // Avatar slika ili placeholder
+            let avatarHTML = '';
+            if (ind.photo) {
+                avatarHTML = `<img class="avatar-img" src="${ind.photo}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`;
+            }
+            
+            const firstLetter = ind.name ? ind.name.charAt(0) : '?';
+            avatarHTML += `<div class="avatar-placeholder" style="display:${ind.photo ? 'none' : 'flex'}">${firstLetter}</div>`;
+
+            const b_year = ind.birth || '???';
+            const d_year = ind.death ? ind.death : (ind.id === '@I21@' || ind.id === '@I22@' ? '†' : '');
+            const dateStr = d_year ? "(" + b_year + " - " + d_year + ")" : "(r. " + b_year + ")";
+
+            div.innerHTML = `
+                <div class="avatar-container">${avatarHTML}</div>
+                <div class="info">
+                    <div class="name">${ind.name}</div>
+                    <div class="dates">${dateStr}</div>
+                </div>
+            `;
+
+            div.onclick = (e) => {
+                e.stopPropagation();
+                showDetails(ind);
+            };
+
+            return div;
+        }
+
+        // Iscrtavanje linija između roditelja i dece pomoću SVG-a
+        function drawLines() {
+            const svg = document.getElementById('svg-lines');
+            svg.innerHTML = ''; // reset
+
+            const canvas = document.getElementById('canvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            svg.setAttribute('width', canvasRect.width);
+            svg.setAttribute('height', canvasRect.height);
+
+            families.forEach(fam => {
+                const husbNode = document.getElementById('node_' + fam.husband.replace(/@/g, ''));
+                const wifeNode = document.getElementById('node_' + fam.wife.replace(/@/g, ''));
+                
+                let parentCenterX, parentCenterY;
+
+                if (husbNode && wifeNode) {
+                    const hRect = husbNode.getBoundingClientRect();
+                    const wRect = wifeNode.getBoundingClientRect();
+
+                    const hX = hRect.left - canvasRect.left + hRect.width / 2;
+                    const hY = hRect.top - canvasRect.top + hRect.height / 2;
+                    const wX = wRect.left - canvasRect.left + wRect.width / 2;
+                    const wY = wRect.top - canvasRect.top + wRect.height / 2;
+
+                    // Spojnica muža i žene
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', hX);
+                    line.setAttribute('y1', hY);
+                    line.setAttribute('x2', wX);
+                    line.setAttribute('y2', wY);
+                    line.setAttribute('stroke', '#7f8c8d');
+                    line.setAttribute('stroke-width', '2');
+                    line.setAttribute('stroke-dasharray', '5,5');
+                    svg.appendChild(line);
+
+                    parentCenterX = (hX + wX) / 2;
+                    parentCenterY = (hY + wY) / 2;
+                } else if (husbNode) {
+                    const hRect = husbNode.getBoundingClientRect();
+                    parentCenterX = hRect.left - canvasRect.left + hRect.width / 2;
+                    parentCenterY = hRect.top - canvasRect.top + hRect.height;
+                } else if (wifeNode) {
+                    const wRect = wifeNode.getBoundingClientRect();
+                    parentCenterX = wRect.left - canvasRect.left + wRect.width / 2;
+                    parentCenterY = wRect.top - canvasRect.top + wRect.height;
+                }
+
+                // Povezivanje dece
+                if (fam.children && fam.children.length > 0 && parentCenterX) {
+                    // Spuštanje zajedničke linije dole od roditelja
+                    const midY = parentCenterY + 50;
+                    
+                    const verticalLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    verticalLine.setAttribute('x1', parentCenterX);
+                    verticalLine.setAttribute('y1', parentCenterY);
+                    verticalLine.setAttribute('x2', parentCenterX);
+                    verticalLine.setAttribute('y2', midY);
+                    verticalLine.setAttribute('stroke', '#2F5496');
+                    verticalLine.setAttribute('stroke-width', '2');
+                    svg.appendChild(verticalLine);
+
+                    let minChildX = Infinity;
+                    let maxChildX = -Infinity;
+                    const childPoints = [];
+
+                    fam.children.forEach(childId => {
+                        const childNode = document.getElementById('node_' + childId.replace(/@/g, ''));
+                        if (childNode) {
+                            const cRect = childNode.getBoundingClientRect();
+                            const cX = cRect.left - canvasRect.left + cRect.width / 2;
+                            const cY = cRect.top - canvasRect.top;
+
+                            childPoints.push({x: cX, y: cY});
+                            if (cX < minChildX) minChildX = cX;
+                            if (cX > maxChildX) maxChildX = cX;
+                        }
+                    });
+
+                    if (childPoints.length > 0) {
+                        // Horizontalna razvodna linija
+                        const horizLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        horizLine.setAttribute('x1', minChildX);
+                        horizLine.setAttribute('y1', midY);
+                        horizLine.setAttribute('x2', maxChildX);
+                        horizLine.setAttribute('y2', midY);
+                        horizLine.setAttribute('stroke', '#2F5496');
+                        horizLine.setAttribute('stroke-width', '2');
+                        svg.appendChild(horizLine);
+
+                        // Vertikalne linije do svakog deteta
+                        childPoints.forEach(pt => {
+                            const downLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            downLine.setAttribute('x1', pt.x);
+                            downLine.setAttribute('y1', midY);
+                            downLine.setAttribute('x2', pt.x);
+                            downLine.setAttribute('y2', pt.y);
+                            downLine.setAttribute('stroke', '#2F5496');
+                            downLine.setAttribute('stroke-width', '2');
+                            svg.appendChild(downLine);
+                        });
+                    }
+                }
+            });
+        }
+
+        // Otvaranje modalnog prozora sa detaljima člana
+        function showDetails(ind) {
+            document.getElementById('modal-name').innerText = ind.name;
+            const b_year = ind.birth || '???';
+            const d_year = ind.death ? ind.death : (ind.id === '@I21@' || ind.id === '@I22@' ? '†' : '');
+            document.getElementById('modal-dates').innerText = d_year ? b_year + " - " + d_year : "Rođen/a: " + b_year;
+            document.getElementById('modal-notes').innerText = ind.notes || "Nema zabeleženih istorijskih podataka za ovog člana.";
+
+            const imgEl = document.getElementById('modal-img');
+            if (ind.photo) {
+                imgEl.src = ind.photo;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+
+            document.getElementById('modal-overlay').style.display = 'block';
+            document.getElementById('detail-modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('detail-modal').style.display = 'none';
+        }
+
+        // Drag & Zoom funkcionalnost (prilagođena i za iPad Touch ekrane)
+        const viewport = document.getElementById('viewport');
+        const canvas = document.getElementById('canvas');
+
+        let zoomLevel = 0.65;
+        let panX = window.innerWidth / 2 - 300;
+        let panY = 100;
+        let isDragging = false;
+        let startX, startY;
+
+        function updateTransform() {
+            canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+        }
+
+        // Početno pozicioniranje
+        resetView();
+
+        function zoom(amount) {
+            zoomLevel = Math.max(0.15, Math.min(2.0, zoomLevel + amount));
+            updateTransform();
+            drawLines();
+        }
+
+        function resetView() {
+            zoomLevel = 0.65;
+            panX = window.innerWidth / 2 - 1200;
+            panY = 100;
+            updateTransform();
+            setTimeout(drawLines, 150);
+        }
+
+        // Miš i touch događaji za pomeranje stabla
+        function startDrag(e) {
+            isDragging = true;
+            startX = (e.pageX || e.touches[0].pageX) - panX;
+            startY = (e.pageY || e.touches[0].pageY) - panY;
+        }
+
+        // Touch drag
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            panX = (e.pageX || e.touches[0].pageX) - startX;
+            panY = (e.pageY || e.touches[0].pageY) - startY;
+            updateTransform();
+        }
+
+        function stopDrag() {
+            isDragging = false;
+        }
+
+        viewport.addEventListener('mousedown', startDrag);
+        viewport.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', stopDrag);
+
+        viewport.addEventListener('touchstart', startDrag, {passive: false});
+        viewport.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', stopDrag);
+
+        window.addEventListener('resize', () => {
+            drawLines();
+        });
+
+        // Pretraga članova
+        function searchMembers() {
+            const query = document.getElementById('search-box').value.toLowerCase().trim();
+            
+            // Skidanje prethodnih svetala
+            document.querySelectorAll('.node').forEach(node => {
+                node.classList.remove('highlighted');
+            });
+
+            if (query.length < 2) return;
+
+            const found = individuals.find(ind => ind.name.toLowerCase().includes(query));
+            if (found) {
+                const node = document.getElementById('node_' + found.id.replace(/@/g, ''));
+                if (node) {
+                    node.classList.add('highlighted');
+                    
+                    // Automatsko centriranje na pronađenog člana
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const nodeRect = node.getBoundingClientRect();
+
+                    const nodeCenterX = nodeRect.left - canvasRect.left + nodeRect.width / 2;
+                    const nodeCenterY = nodeRect.top - canvasRect.top + nodeRect.height / 2;
+
+                    panX = window.innerWidth / 2 - nodeCenterX * zoomLevel;
+                    panY = window.innerHeight / 2 - nodeCenterY * zoomLevel;
+                    
+                    updateTransform();
+                    setTimeout(drawLines, 150);
+                }
+            }
+        }
+
+        // Pokretanje iscrtavanja stabla
+        renderTree();
+    </script>
+</body>
+</html>
