@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Porodično Stablo Spasić v19</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #app-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            transform-origin: 0 0;
+            cursor: grab;
+            transition: transform 0.05s ease-out;
+        }
+
+        #canvas:active {
+            cursor: grabbing;
+        }
+
+        #header-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 16px 22px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 380px;
+        }
+
+        #header-panel h1 {
+            margin: 0 0 6px 0;
+            font-size: 22px;
+            color: #1a252f;
+            font-weight: 700;
+        }
+
+        #header-panel p {
+            margin: 0 0 12px 0;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: #2F5496;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+            z-index: 20;
+            margin-top: 4px;
+        }
+
+        .search-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .search-item:hover {
+            background-color: #f5f7fa;
+            color: #2F5496;
+            font-weight: 600;
+        }
+
+        #zoom-controls {
+            position: absolute;
+            bottom: 25px;
+            left: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+        }
+
+        .zoom-btn {
+            width: 44px;
+            height: 44px;
+            background: white;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:active {
+            background: #eef;
+        }
+
+        /* Tree Node Card Styling */
+        .card {
+            position: absolute;
+            width: 190px;
+            height: 68px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            border-left: 5px solid #888;
+            z-index: 2;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+
+        .card.male {
+            border-left-color: #2F5496;
+        }
+
+        .card.female {
+            border-left-color: #d81b60;
+        }
+
+        .card.selected-card {
+            border: 2px solid #f39c12 !important;
+            border-left-width: 6px !important;
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.6) !important;
+            z-index: 10 !important;
+        }
+
+        .card.family-highlight {
+            box-shadow: 0 0 10px rgba(47, 84, 150, 0.4) !important;
+            z-index: 5 !important;
+        }
+
+        .card-photo {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 10px;
+            border: 1px solid #eee;
+            background-color: #f0f0f0;
+            flex-shrink: 0;
+        }
+
+        .card-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .card-avatar.male { background-color: #2F5496; }
+        .card-avatar.female { background-color: #d81b60; }
+
+        .card-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .card-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        .card-dates {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+
+        /* Detail Sidebar */
+        #detail-sidebar {
+            position: absolute;
+            top: 0;
+            right: -380px;
+            width: 360px;
+            height: 100vh;
+            background: white;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            z-index: 100;
+            transition: right 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #detail-sidebar.open {
+            right: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #2F5496;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .sidebar-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .detail-photo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .detail-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 3px solid #fff;
+        }
+
+        .detail-field {
+            margin-bottom: 14px;
+        }
+
+        .detail-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #888;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .rel-link {
+            display: inline-block;
+            background: #eef2f7;
+            color: #2F5496;
+            padding: 4px 10px;
+            border-radius: 6px;
+            margin: 2px 4px 4px 0;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .rel-link:hover {
+            background: #2F5496;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="header-panel">
+            <h1>Porodica Spasić v19</h1>
+            <p>Porodično stablo sa svim potomcima i srodnicima. Pretražite ili dodirnite člana porodice.</p>
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Pretraži člana porodice...">
+                <div class="search-results" id="search-results"></div>
+            </div>
+        </div>
+
+        <div id="zoom-controls">
+            <button class="zoom-btn" id="btn-zoom-in">+</button>
+            <button class="zoom-btn" id="btn-zoom-out">−</button>
+            <button class="zoom-btn" id="btn-zoom-reset">⟲</button>
+        </div>
+
+        <div id="canvas">
+            <svg id="svg-lines" style="position: absolute; left: 0; top: 0; pointer-events: none;"></svg>
+            <div id="tree-nodes" style="position: absolute; left: 0; top: 0;"></div>
+        </div>
+
+        <div id="detail-sidebar">
+            <div class="sidebar-header">
+                <h2 id="sidebar-name">Detalji</h2>
+                <button class="close-btn" id="close-sidebar">&times;</button>
+            </div>
+            <div class="sidebar-body">
+                <div class="detail-photo-container" id="detail-photo-box"></div>
+                <div class="detail-field">
+                    <div class="detail-label">Rođenje</div>
+                    <div class="detail-value" id="detail-birth">-</div>
+                </div>
+                <div class="detail-field" id="detail-death-box">
+                    <div class="detail-label">Smrt</div>
+                    <div class="detail-value" id="detail-death">-</div>
+                </div>
+                <div class="detail-field">
+                    <div class="detail-label">Roditelji</div>
+                    <div class="detail-value" id="detail-parents">-</div>
+                </div>
+                <div class="detail-field">
+                    <div class="detail-label">Bračni drug</div>
+                    <div class="detail-value" id="detail-spouses">-</div>
+                </div>
+                <div class="detail-field">
+                    <div class="detail-label">Braća i sestre</div>
+                    <div class="detail-value" id="detail-siblings">-</div>
+                </div>
+                <div class="detail-field">
+                    <div class="detail-label">Deca</div>
+                    <div class="detail-value" id="detail-children">-</div>
+                </div>
+                <div class="detail-field" id="detail-notes-box">
+                    <div class="detail-label">Beleške / Istorijat</div>
+                    <div class="detail-value" id="detail-notes">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const rawIndividuals = [{"id": "@I1@", "name": "Todor Spasic", "gender": "M", "birth_full": "1902-01-24", "death_full": "1989-09-13", "birth_year": "1902", "death_year": "1989", "birth_place": "Bitolj", "death_place": "Beograd", "is_deceased": true, "notes": "Rođen u kući oca Stefana obućara. Peto dete.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWMxZTU2MTYxMGM4NzU0ZGM2Y2VkMzY4ZWY0MDQzZTg3Y2Y4ZTIwZDY0NzFlMDZkZTQyOTBhNDM3YzQ0NGNiNjcmZT0xNzg5NDg0NDAw/014/495/0731/503930_883954454w8a72e76wk167_A.jpg", "photo_ascii": "Todor_Spasic_I1.jpg", "photo_orig": "Todor_Spasic_I1.jpg", "photo": "Todor_Spasic_I1.jpg"}, {"id": "@I2@", "name": "Vera Ivanova", "gender": "F", "birth_full": "1904-08-28", "death_full": "1983-04-08", "birth_year": "1904", "death_year": "1983", "birth_place": "Prilep", "death_place": "Beograd-državna bolnica", "is_deceased": true, "notes": "Rođena u očevoj kući u nedelju. Umrla od srčanog udara.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTJkNTc2ZjM2MTU2ZTY0OWQxODM2MDc4MjIzMzUxMWU4ZjQxM2Y4N2Y4MGE3NTY3MDFkOTU3ODNlODc0NDc3N2YmZT0xNzg5NDg0NDAw/014/495/0731/503926_74195228nrch1a6k67e296_A.jpg", "photo_ascii": "Vera_Ivanova_I2.jpg", "photo_orig": "Vera_Ivanova_I2.jpg", "photo": "Vera_Ivanova_I2.jpg"}, {"id": "@I3@", "name": "Aleksandar Spasic", "gender": "M", "birth_full": "1929-01-24", "death_full": "2019-12-17", "birth_year": "1929", "death_year": "2019", "birth_place": "Bitolj", "death_place": "Beograd", "is_deceased": true, "notes": "Diplomirani inženjer. Rođen u kući pokojnog dede Petra i Fotine.", "email": "spasicaca@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTJkMjc1MDM0NjFmYzhhZDk0ZTdhZThmYjFjMWUyMWZjZmVkNjBlYjU1YTNjYmZhYzQ5NmY1ZGE3MTYxOWMxNTgmZT0xNzg5NDg0NDAw/014/495/0731/503946_4896317au2607918f5bl98_A.jpg", "photo_ascii": "Aleksandar_Spasic_I3.jpg", "photo_orig": "Aleksandar_Spasic_I3.jpg", "photo": "Aleksandar_Spasic_I3.jpg"}, {"id": "@I4@", "name": "Radmila Spasić", "gender": "F", "birth_full": "1931-11-25", "death_full": "", "birth_year": "1931", "death_year": "", "birth_place": "Priština", "death_place": "", "is_deceased": false, "notes": "Doktor. Rođena u kući oca dok je gradio prugu Priština-Peć.", "email": "klashnya@comcast.net", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTViMWNkNDY1OTE2OTExOTI5ZjAxZDA2N2IzN2ZjMmU5NDZiYzU2MTVkZDc3YTE3MDJhZjI0ZjIyN2Y4MzY3NjAmZT0xNzg5NDg0NDAw/014/495/0731/500531_4700182s4e78d11c83wb24_Z.jpg", "photo_ascii": "Radmila_Spasi_I4.jpg", "photo_orig": "Radmila_Spasić_I4.jpg", "photo": "Radmila_Spasi_I4.jpg"}, {"id": "@I5@", "name": "Nada Spasić", "gender": "F", "birth_full": "1934-03-07", "death_full": "2015-08-07", "birth_year": "1934", "death_year": "2015", "birth_place": "Peć", "death_place": "Beograd", "is_deceased": true, "notes": "Zubotehničar. Gimnastičarka, reprezentativac na Olimpijskim igrama u Helsinkiju. Umrla kod kuće.", "email": "curcic.nada@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTE4NWJlYzgzM2ExYjI1MDIzYjhjYzM3MWM5MWFlODJkODYzNWM3ZDM5ODNkNzcyYjU4ZGVhYTNjNWY4OTUyOTkmZT0xNzg5NDg0NDAw/014/495/0731/503916_471736a677966429012and_A.jpg", "photo_ascii": "Nada_Spasi_I5.jpg", "photo_orig": "Nada_Spasić_I5.jpg", "photo": "Nada_Spasi_I5.jpg"}, {"id": "@I6@", "name": "Borislav Ćurčić", "gender": "M", "birth_full": "1932-01-27", "death_full": "2015-04-15", "birth_year": "1932", "death_year": "2015", "birth_place": "", "death_place": "Beograd", "is_deceased": true, "notes": "Kremiran na Novom groblju. Umro od srčanog udara.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTYwYWY0ZmU5OWY2NTE3ZjE5NTRhOTYzMjViZDcyZjE5NjU3NTZhNDI1ZGZjOTdiOTVjOWZlNGM3OTIxNGQ0NDEmZT0xNzg5NDg0NDAw/014/495/0731/503929_673223467iar8k266e17u5_A.jpg", "photo_ascii": "Borislav_uri_I6.jpg", "photo_orig": "Borislav_Ćurčić_I6.jpg", "photo": "Borislav_uri_I6.jpg"}, {"id": "@I7@", "name": "Ivana Ćurčić", "gender": "F", "birth_full": "1961-08-08", "death_full": "", "birth_year": "1961", "death_year": "", "birth_place": "Beograd-državna bolnica", "death_place": "", "is_deceased": false, "notes": "Ćerka Nade i Borislava.", "email": "ivana.curcic@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTE4Y2QwN2YwNTYyZjllMGIyN2E4ZjQ4YmUwY2Y1MzNlZjRiZWU0ODQwNDU0OTAzMGRhNjM0MTg3NDU4YmU3YjImZT0xNzg5NDg0NDAw/014/495/0731/503970_8522840fcj7351dk12a6e5_A.jpg", "photo_ascii": "Ivana_uri_I7.jpg", "photo_orig": "Ivana_Ćurčić_I7.jpg", "photo": "Ivana_uri_I7.jpg"}, {"id": "@I9@", "name": "Azra Milena Gordy", "gender": "F", "birth_full": "1996-05-18", "death_full": "", "birth_year": "1996", "death_year": "", "birth_place": "Berkeley, California USA", "death_place": "", "is_deceased": false, "notes": "Dodata preko Smart Match sa Gordy Web Site.", "email": "azra.gordy@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTFlOGNlNTc0M2RmY2U2Yzg3NDk1N2JkM2YxMWRjYzdjMzcyMmEzMWM1YTQwZTdjZGY4OTIwZTRiNjdlMGNjOTgmZT0xNzg5NDg0NDAw/014/495/0731/503830_988521ehc8055321pdd398_X.jpg", "photo_ascii": "Azra_Milena_Gordy_I9.jpg", "photo_orig": "Azra_Milena_Gordy_I9.jpg", "photo": "Azra_Milena_Gordy_I9.jpg"}, {"id": "@I10@", "name": "Eric Gordy", "gender": "M", "birth_full": "1966-02-07", "death_full": "", "birth_year": "1966", "death_year": "", "birth_place": "Seattle, Washington", "death_place": "", "is_deceased": false, "notes": "Dr. Predavač na UCL (University College London). PhD na Berkeleyu.", "email": "eric.gordy@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTljZjViNGJmMWY3NDdiZjExN2RmNzZlNWM0NGVkNTQ3NzY1NDkwMDIwMGFjNjcyYjQ1YjlhMjRmYzBhMjJiNzUmZT0xNzg5NDg0NDAw/014/495/0731/503936_492840a3c89kr776sxbc31_A.jpg", "photo_ascii": "Eric_Gordy_I10.jpg", "photo_orig": "Eric_Gordy_I10.jpg", "photo": "Eric_Gordy_I10.jpg"}, {"id": "@I11@", "name": "Ena Klasnja", "gender": "F", "birth_full": "1959-04-15", "death_full": "", "birth_year": "1959", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Radmile i Aleksandra.", "email": "ecaroll3@wi.rr.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTVmNTc4Yzg1OGY1ZDM0ZjY1ZTI0MWI4YzQwOGZkNTBhMDgyNzYwM2MzMDkxOTk3NDYwOTUyMzdiOWQ0MzBmMTEmZT0xNzg5NDg0NDAw/014/495/0731/500511_8227498c411v86b38z0dcf_D.jpg", "photo_ascii": "Ena_Klasnja_I11.jpg", "photo_orig": "Ena_Klasnja_I11.jpg", "photo": "Ena_Klasnja_I11.jpg"}, {"id": "@I12@", "name": "Aleksandar Klasnja", "gender": "M", "birth_full": "1931-08-13", "death_full": "", "birth_year": "1931", "death_year": "", "birth_place": "Stara Pazova", "death_place": "", "is_deceased": false, "notes": "Dr. Rođen u kući oca i majke.", "email": "klavshnya@comkast.net", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTI4MjIzMThiMGMwODY3NTAyODdhOGM3OWE4YjlhMDc5YjIxNjFjY2M5NTZhMjgyNmZhYmM5OTdlMGFhY2I2Y2YmZT0xNzg5NDg0NDAw/014/495/0731/501811_337595b407ee2d9y6h8021_D.JPG", "photo_ascii": "Aleksandar_Klasnja_I12.jpg", "photo_orig": "Aleksandar_Klasnja_I12.jpg", "photo": "Aleksandar_Klasnja_I12.jpg"}, {"id": "@I13@", "name": "Maya Klasnja", "gender": "F", "birth_full": "1963-05-18", "death_full": "", "birth_year": "1963", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Radmile i Aleksandra.", "email": "testers@comkast.net", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTYwMGYwMDdjZjBjNzViN2ZhNTQ4MzFkODA4NjMwOTBmYzAwZjc4OWU0Y2ViZjk3MzhlNzc2OTJkNzUxMjZiYzImZT0xNzg5NDg0NDAw/014/495/0731/503980_230890xyaf07s16j477f5c_A.jpg", "photo_ascii": "Maya_Klasnja_I13.jpg", "photo_orig": "Maya_Klasnja_I13.jpg", "photo": "Maya_Klasnja_I13.jpg"}, {"id": "@I14@", "name": "David Carroll", "gender": "M", "birth_full": "1956-12-12", "death_full": "", "birth_year": "1956", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Ene Klasnje.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTRhYjg0Y2FjMzFkMWNkYjFhMmJhOWJjNTk0OGFjMjZlODEzMGQ1ZGIzODE2OGZhMTE2OTk4YTY3MDQxOWE3MTUmZT0xNzg5NDg0NDAw/014/495/0731/500631_9774060o847ff9k8bfpadn_Z.jpg", "photo_ascii": "David_Carroll_I14.jpg", "photo_orig": "David_Carroll_I14.jpg", "photo": "David_Carroll_I14.jpg"}, {"id": "@I15@", "name": "Maya Rose", "gender": "F", "birth_full": "1986-09-30", "death_full": "", "birth_year": "1986", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Maja Rouz. Udata Baudinet.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWYxZWIwNDViNDMyMDhkNmFmZTJhM2Q4NDAxYmFlYjUyYzNlN2NiYTJhYzQzOGNjMzI0MTE2NjBjMjZiYmM5YzQmZT0xNzg5NDg0NDAw/014/495/0731/503913_75995000duo3acjx6519e6_A.jpg", "photo_ascii": "Maya_Rose_I15.jpg", "photo_orig": "Maya_Rose_I15.jpg", "photo": "Maya_Rose_I15.jpg"}, {"id": "@I16@", "name": "Elizabeth", "gender": "F", "birth_full": "1988-06-20", "death_full": "", "birth_year": "1988", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Elizabet En Karol. Udata Newman.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTdmZTUwM2YxMGJjMTQ2NDVlOWQyODk5YjU1ZDBlYWZlZTcwYmRlNGY5MTEwMzMzZjQxZjM3MDQ2YzE1ZjhkYWQmZT0xNzg5NDg0NDAw/014/495/0731/500551_8775638qb84q574jm03fgd_D.jpg", "photo_ascii": "Elizabeth_I16.jpg", "photo_orig": "Elizabeth_I16.jpg", "photo": "Elizabeth_I16.jpg"}, {"id": "@I17@", "name": "Frances Carroll", "gender": "F", "birth_full": "1993-02-16", "death_full": "", "birth_year": "1993", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Frenki. Ćerka Ene i Dejvida.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA3NThjMzkwMzY5MjMzZjRiZGZmN2YyMTYwMjEwMTQyYzc1NGZjZDY2MTAxYjQ0MmYxMjM1YTQ5ZmFkOGIzYjImZT0xNzg5NDg0NDAw/014/495/0731/500491_228083z8bs9ng8g35d0431_D.jpg", "photo_ascii": "Frances_Carroll_I17.jpg", "photo_orig": "Frances_Carroll_I17.jpg", "photo": "Frances_Carroll_I17.jpg"}, {"id": "@I18@", "name": "Peter Tester", "gender": "M", "birth_full": "1963-01-28", "death_full": "", "birth_year": "1963", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Maje Klasnje.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTEwNGI2MTY0NDFmMzIzMWUzNjMzYjU5OTE2ZTcyNTZlZjQzOWZlOTlmOGE5ODdmNWNjOWEyYmU0YjYxM2IwMWImZT0xNzg5NDg0NDAw/014/495/0731/501031_567367fw81bbs0ybsd914h_Z.jpg", "photo_ascii": "Peter_Tester_I18.jpg", "photo_orig": "Peter_Tester_I18.jpg", "photo": "Peter_Tester_I18.jpg"}, {"id": "@I19@", "name": "Annalisa Claire Tester", "gender": "F", "birth_full": "1992-05-14", "death_full": "", "birth_year": "1992", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Bliznakinja sa Kristinom (rođena prva).", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTVhZmE3NTZlMTcwYWJjOTIwZjFjMGJmODk2ZWU3M2FiNmVjNDg1ZjhlM2ZlNzJkZGQ1N2ZlNWRiM2E3ZWMxMWEmZT0xNzg5NDg0NDAw/014/495/0731/501611_2953508k447r14pf25ay9a_P.jpg", "photo_ascii": "Annalisa_Claire_Tester_I19.jpg", "photo_orig": "Annalisa_Claire_Tester_I19.jpg", "photo": "Annalisa_Claire_Tester_I19.jpg"}, {"id": "@I21@", "name": "Stefan Spasic", "gender": "M", "birth_full": "1864", "death_full": "1924-08-11", "birth_year": "1864", "death_year": "1924", "birth_place": "selo Bukovo, Bitolj", "death_place": "Skoplje", "is_deceased": true, "notes": "Obućar iz Bitolja. Umro od upale pluća u gostima kod sina.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTY0ZDM5ZjhlZDMwYmI5ZjZiZWIxYmMxYjBlNTAxNjJhNmI3YmE1M2NjNjJhMDMxMjdmNThkOGJmY2VhNGRjMzYmZT0xNzg5NDg0NDAw/014/495/0731/503940_456088f9j796797v1ffksa_A.jpg", "photo_ascii": "Stefan_Spasic_I21.jpg", "photo_orig": "Stefan_Spasic_I21.jpg", "photo": "Stefan_Spasic_I21.jpg"}, {"id": "@I22@", "name": "Vasilija Bojadjijeva", "gender": "F", "birth_full": "1862", "death_full": "1934", "birth_year": "1862", "death_year": "1934", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Očeva majka, baka Vasilija. Umrla od starosti.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA3YThhM2I3ZGM3ODk4OWEwNzY0YWU4OGQ2YzRiMDNkMjk3MWE1ZjI2NzI2MDk5ZDcxODAwNjVlZjMzYjJmMmUmZT0xNzg5NDg0NDAw/014/495/0731/503944_3985532a0a6n4186376l73_A.jpg", "photo_ascii": "Vasilija_Bojadjijeva_I22.jpg", "photo_orig": "Vasilija_Bojadjijeva_I22.jpg", "photo": "Vasilija_Bojadjijeva_I22.jpg"}, {"id": "@I23@", "name": "Lazar Stefanovic", "gender": "M", "birth_full": "1889-01-01", "death_full": "1936-11-08", "birth_year": "1889", "death_year": "1936", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Apotekar pri vojsci Kraljevine Jugoslavije.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTMxNGNlMmY1NzhjNTkyNDVlMDk1NzIyYjcwNDliN2VmNWFjN2ExODMzMmJjMjJhNWNjODY0NDFkZDUyMTU1YzcmZT0xNzg5NDg0NDAw/014/495/0731/502871_3037901daee3454edbd424_Z.jpg", "photo_ascii": "Lazar_Stefanovic_I23.jpg", "photo_orig": "Lazar_Stefanovic_I23.jpg", "photo": "Lazar_Stefanovic_I23.jpg"}, {"id": "@I25@", "name": "Milka Stefanović", "gender": "F", "birth_full": "1923-05-25", "death_full": "", "birth_year": "1923", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Lazara i Živke. Udata Maksimović.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWNiMmMyMzRiODExNTIyNWMyYTJlMzIyMzczZGU5ZjQ2Zjg1MjI5YmRjNThlYmM2ZjE5MjIzZjNlYTBlYmIzMTEmZT0xNzg5NDg0NDAw/014/495/0731/502151_648356ez622m442qeo521b_Z.jpg", "photo_ascii": "Milka_Stefanovi_I25.jpg", "photo_orig": "Milka_Stefanović_I25.jpg", "photo": "Milka_Stefanovi_I25.jpg"}, {"id": "@I26@", "name": "Dragomir Maksimovic", "gender": "M", "birth_full": "1917", "death_full": "1986", "birth_year": "1917", "death_year": "1986", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Suprug Milke Stefanović. Umro od bolesti bubrega.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I27@", "name": "Zoran Maksimovic", "gender": "M", "birth_full": "1950-10-27", "death_full": "", "birth_year": "1950", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Milke i Dragomira.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I28@", "name": "Tatjana Maksimovic", "gender": "F", "birth_full": "1946-01-18", "death_full": "", "birth_year": "1946", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Nikolić. Ćerka Milke i Dragomira.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I29@", "name": "Radmila Stefanovic", "gender": "F", "birth_full": "1924-11-12", "death_full": "2007-06-01", "birth_year": "1924", "death_year": "2007", "birth_place": "Skoplje", "death_place": "", "is_deceased": true, "notes": "Udata Nikolić. Ćerka Lazara i Živke.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWU0MzYxYzI3M2Q5MDE4MDJiMzMwYmI3ZjdmYmRiYjc3YTU1ZWRlYjY0MDI2ZWMwNzJiOWExZTFmMWEzNDEwZjcmZT0xNzg5NDg0NDAw/014/495/0731/503954_755859ap8e1s7a894996zi_A.jpg", "photo_ascii": "Radmila_Stefanovic_I29.jpg", "photo_orig": "Radmila_Stefanovic_I29.jpg", "photo": "Radmila_Stefanovic_I29.jpg"}, {"id": "@I30@", "name": "Tadija Nikolic", "gender": "M", "birth_full": "1925-08-01", "death_full": "", "birth_year": "1925", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Radmile Stefanović.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA4MTIzYTE3MWQyYWQ4NjQyZWNhM2JmNGExY2I4MDhjYjlmMDA1NGI0MjEyYTlkMTRiNTIxZTk2MzU2ZDY3YjImZT0xNzg5NDg0NDAw/014/495/0731/502241_7725462ddqxcs68ee32b44_D.jpg", "photo_ascii": "Tadija_Nikolic_I30.jpg", "photo_orig": "Tadija_Nikolic_I30.jpg", "photo": "Tadija_Nikolic_I30.jpg"}, {"id": "@I31@", "name": "Ilija Klasnja", "gender": "M", "birth_full": "1899", "death_full": "1958", "birth_year": "1899", "death_year": "1958", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Dr. Otac Aleksandra Klasnje.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTJhY2ZjNWQ5YTZhNGNjOTdiNDY4OTU1ZDczYWI1OGM5ODFhNmQyNGY0YWI0YzljODQ5ZjMxNDlmMjUwNDM2Y2MmZT0xNzg5NDg0NDAw/014/495/0731/502061_1436398840292q2e73e3u6_Z.JPG", "photo_ascii": "Ilija_Klasnja_I31.jpg", "photo_orig": "Ilija_Klasnja_I31.jpg", "photo": "Ilija_Klasnja_I31.jpg"}, {"id": "@I32@", "name": "Milena Vozarovic", "gender": "F", "birth_full": "1907", "death_full": "1984", "birth_year": "1907", "death_year": "1984", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Udata Klasnja. Majka Aleksandra Klasnje.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTUwZmZiM2E0ZGQ3Y2VjZjUxNWNhMzEyNzA5YTlmZmI1MTM3NzI4NDJmYTJkZmQ3YzkwMjUxZDJlNWUyZTQwZDUmZT0xNzg5NDg0NDAw/014/495/0731/502051_275169642b92p2wbet88p0_Z.JPG", "photo_ascii": "Milena_Vozarovic_I32.jpg", "photo_orig": "Milena_Vozarovic_I32.jpg", "photo": "Milena_Vozarovic_I32.jpg"}, {"id": "@I33@", "name": "Damjan Klasnja", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac Ilije Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I34@", "name": "Ljubica Gugleta", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Majka Ilije Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I35@", "name": "Kata Bosiljkic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Ilije Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I36@", "name": "Steva Klasnja", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Brat Ilije Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I37@", "name": "Mirjana Petrovic", "gender": "F", "birth_full": "1933", "death_full": "", "birth_year": "1933", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Aleksandra Klasnje. Udata Petrović.", "email": "mklasnja@sbb.rs", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTUzZWQ0YmU2YmY4MWVlOGQ2OTUxNDE1NjZjNzczMGM2ZTZjYWU3ZmYyZTI0NzliMGY4NWU4NTNiZGI3MTA5YjQmZT0xNzg5NDg0NDAw/014/495/0731/500651_518342ebo8dvn4ubx0y087_D.jpg", "photo_ascii": "Mirjana_Petrovic_I37.jpg", "photo_orig": "Mirjana_Petrovic_I37.jpg", "photo": "Mirjana_Petrovic_I37.jpg"}, {"id": "@I38@", "name": "Zoran Petrovic", "gender": "M", "birth_full": "1927", "death_full": "", "birth_year": "1927", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Dr. Suprug Mirjane Petrović.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTRjZGUzMGI2ZDEwMjI0MjQ5OTgzMWJhMzRhNDNmMzcxZWY2YzQzYjRhNDQ2ZGVjOTY4OWY3YTBmM2Y4MzE3NWUmZT0xNzg5NDg0NDAw/014/495/0731/503841_9239355994588zu36tebsc_X.jpg", "photo_ascii": "Zoran_Petrovic_I38.jpg", "photo_orig": "Zoran_Petrovic_I38.jpg", "photo": "Zoran_Petrovic_I38.jpg"}, {"id": "@I39@", "name": "Jelena Mladenovic", "gender": "F", "birth_full": "1963-11-08", "death_full": "", "birth_year": "1963", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Mirjane i Zorana Petrovića.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWVmNTY0MTViNWE4MDU5YjU3OTUzODJjYTY3M2Q0MjhkMmQ4NTcyMjg4ZjkyMjZkMjU2ZjVjNTU0ZjBlNGIyOGImZT0xNzg5NDg0NDAw/014/495/0731/503977_895517fvzu1568gh5177a9_A.jpg", "photo_ascii": "Jelena_Mladenovic_I39.jpg", "photo_orig": "Jelena_Mladenovic_I39.jpg", "photo": "Jelena_Mladenovic_I39.jpg"}, {"id": "@I40@", "name": "Igor Mladenovic", "gender": "M", "birth_full": "1961", "death_full": "", "birth_year": "1961", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Jelene Mladenović.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTUyM2YzNmRhZDE1Yjg2ZGU1Mzc1YjJhYmYyNDBkNDllMTJhNmQ3MWZjYmQwNjE4MDUwMzkxYTZjODNkNDc3MTYmZT0xNzg5NDg0NDAw/014/495/0731/500671_183220kfv0qc064wfdbb78_Z.jpg", "photo_ascii": "Igor_Mladenovic_I40.jpg", "photo_orig": "Igor_Mladenovic_I40.jpg", "photo": "Igor_Mladenovic_I40.jpg"}, {"id": "@I41@", "name": "Sasa Mladenovic", "gender": "F", "birth_full": "1992", "death_full": "", "birth_year": "1992", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Jelene i Igora.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU1N2Q5NjkzZmI4NTA1YWIxYjJiZjU0NzRiNzdjYjFkZTNlNTgxMmNmYjljZDhjNDZiMTNhYzEyZGM5MmY0OGQmZT0xNzg5NDg0NDAw/014/495/0731/503979_42786170h93nb76fr7f17a_A.jpg", "photo_ascii": "Sasa_Mladenovic_I41.jpg", "photo_orig": "Sasa_Mladenovic_I41.jpg", "photo": "Sasa_Mladenovic_I41.jpg"}, {"id": "@I42@", "name": "Andrija Mladenovic", "gender": "M", "birth_full": "1996", "death_full": "", "birth_year": "1996", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Jelene i Igora.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWU5Mjk2YjY1YmJjZjYyOWZkZjBlOTM1YjBjYzA1ODA5MDAxMTQ0YjE2ZDc2MWVjZTFlNTI5NTBhOGFiOTAzYjkmZT0xNzg5NDg0NDAw/014/495/0731/503978_097804h98791ft64ao7fx7_A.jpg", "photo_ascii": "Andrija_Mladenovic_I42.jpg", "photo_orig": "Andrija_Mladenovic_I42.jpg", "photo": "Andrija_Mladenovic_I42.jpg"}, {"id": "@I43@", "name": "Djordje Bosiljkic", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Kate Bosiljkić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I44@", "name": "Bosiljkic (muz)", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Kate Bosiljkić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I45@", "name": "Olgica Bosiljkic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Kate Bosiljkić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I46@", "name": "Mira Lazic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Mira (Klasnja) Lazić. Dr. Ćerka Steve Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I47@", "name": "Klasnja (supruga Steve)", "gender": "F", "birth_full": "1907-02-01", "death_full": "", "birth_year": "1907", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Steve Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I48@", "name": "Hans Tester", "gender": "M", "birth_full": "1961", "death_full": "", "birth_year": "1961", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Dr. Brat Pitera Testera.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTNhMmZjZjA4YTU5OGM4NjIxNDQxMmJkOWY0NzBlNDAyMzNiMTEzMjJmZmQ1NWE3OTg2ODBjNDFhMjI2YTAwMTUmZT0xNzg5NDg0NDAw/014/495/0731/500961_501787bb98y2240d1ha99g_D.jpg", "photo_ascii": "Hans_Tester_I48.jpg", "photo_orig": "Hans_Tester_I48.jpg", "photo": "Hans_Tester_I48.jpg"}, {"id": "@I49@", "name": "John Tester", "gender": "M", "birth_full": "1929", "death_full": "", "birth_year": "1929", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac Pitera Testera.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTlhNTIwNDFkMWZmZjk0ZmI2YTk1YjJjM2I1OWU4N2QzZGY5NWY1NjhlYWQ4N2NhMTU1YWI0ODk5OTI3NDc0Y2ImZT0xNzg5NDg0NDAw/014/495/0731/500921_223158c7b79dybcbe804rx_Z.jpg", "photo_ascii": "John_Tester_I49.jpg", "photo_orig": "John_Tester_I49.jpg", "photo": "John_Tester_I49.jpg"}, {"id": "@I50@", "name": "Joyce Tester", "gender": "F", "birth_full": "1933", "death_full": "", "birth_year": "1933", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Majka Pitera Testera.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWJlMWYwNmRhM2QwNGI4OTAyMmZlODU1MzdhZTNlZWVhOThmYjI3NzM4Mzg1ZmU5ZjA5Njc3Y2UzNGEyM2ZkYTMmZT0xNzg5NDg0NDAw/014/495/0731/500941_660494hv8bt90akdb8i4n8_D.jpg", "photo_ascii": "Joyce_Tester_I50.jpg", "photo_orig": "Joyce_Tester_I50.jpg", "photo": "Joyce_Tester_I50.jpg"}, {"id": "@I53@", "name": "Olivera Bauk", "gender": "F", "birth_full": "1929-03-05", "death_full": "2019-06-17", "birth_year": "1929", "death_year": "2019", "birth_place": "Zaječar", "death_place": "Beograd-kod kuće", "is_deceased": true, "notes": "Radila u Društvu inženjera i tehničara. Umrla od dijabetesa.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPThlYzMyNTM1OWM5NWE0MWEzZjEwMGM5NTU4YWRiYTczZmQ0YWNmY2ZmOGM5MmMxZDY5YTY4Nzk3OWE3YThkY2UmZT0xNzg5NDg0NDAw/014/495/0731/503878_531648u1f4c25j15ay64wa_F.jpg", "photo_ascii": "Olivera_Bauk_I53.jpg", "photo_orig": "Olivera_Bauk_I53.jpg", "photo": "Olivera_Bauk_I53.jpg"}, {"id": "@I54@", "name": "Zoran Spasic", "gender": "M", "birth_full": "1953-05-15", "death_full": "2010-10-21", "birth_year": "1953", "death_year": "2010", "birth_place": "Beograd", "death_place": "", "is_deceased": true, "notes": "Sin Aleksandra i Olivere. Umro od ciroze jetre (virus C).", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTYzMmRiNmU0MTQ0OTIzZWJiZjAxNjY4ZDM3MDMyZjhmZGYwNGQ2YTJjY2U1ODhiM2U0ZWViNzc2NzIyMzU5Y2ImZT0xNzg5NDg0NDAw/014/495/0731/503982_922045aalh5q84684adf14_A.jpg", "photo_ascii": "Zoran_Spasic_I54.jpg", "photo_orig": "Zoran_Spasic_I54.jpg", "photo": "Zoran_Spasic_I54.jpg"}, {"id": "@I55@", "name": "Natasa Cvetanovic", "gender": "F", "birth_full": "1958-08-27", "death_full": "", "birth_year": "1958", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ista kao I55 (duplirana u GEDCOM-u).", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWRhNDJlMDQwYjQxMmFlOGQ5YmJhZDVlZWQ0ZjljOTkxMGM4ZWU2ZDY2NWIzODRiM2EwOTBlNzQ4MDA5ZTE0OTUmZT0xNzg5NDg0NDAw/014/495/0731/502501_173856fce2d4h2n3j14x0e_D.jpg", "photo_ascii": "Natasa_Cvetanovic_I55.jpg", "photo_orig": "Natasa_Cvetanovic_I55.jpg", "photo": "Natasa_Cvetanovic_I55.jpg"}, {"id": "@I56@", "name": "Gorana Raseta", "gender": "F", "birth_full": "1963-04-11", "death_full": "", "birth_year": "1963", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Druga supruga Zorana Spasića.", "email": "tosaspasic@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTNiMGM2NTQ5OWQyOTYyM2YwOWIzZTUyOGQ1YzVjOTFkNmMyMDAzYTY0NmFjMzZlN2U5YzZjNDY3YWNkOGQ1NDEmZT0xNzg5NDg0NDAw/014/495/0731/503957_052663afz8s87tg76g21a5_A.jpg", "photo_ascii": "Gorana_Raseta_I56.jpg", "photo_orig": "Gorana_Raseta_I56.jpg", "photo": "Gorana_Raseta_I56.jpg"}, {"id": "@I58@", "name": "Luka Spasic", "gender": "M", "birth_full": "1995-11-22", "death_full": "", "birth_year": "1995", "death_year": "", "birth_place": "Beograd-bolnica Dragiša Mišović", "death_place": "", "is_deceased": false, "notes": "Sin Zorana Spasića i Gorane Rašeta. Vrlo visok (196cm).", "email": "spasicluka222@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA2ODUwZGJjYWEyZjVlMDhjZmEyMWYyODYzNjExMmY0MDMzYmQyMzM3OWJkZWI1N2U1NDZlZDFjZjkyYTliZDUmZT0xNzg5NDg0NDAw/014/495/0731/503964_5359487a9d6a8jbdzuc81u_A.jpg", "photo_ascii": "Luka_Spasic_I58.jpg", "photo_orig": "Luka_Spasic_I58.jpg", "photo": "Luka_Spasic_I58.jpg"}, {"id": "@I59@", "name": "Vladimir Spasic", "gender": "M", "birth_full": "1964-12-24", "death_full": "", "birth_year": "1964", "death_year": "", "birth_place": "Beograd-bolnica Dragiša Mišović", "death_place": "", "is_deceased": false, "notes": "Vladiša. Sin Aleksandra i Olivere.", "email": "prdisa@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTVjYjk5Y2ZjYzFlNGEzNTM0MDAxNjNiZmUwMmRjZWYwMzdhMDgxYzY0ZTgyZjQ5OTBhNGNiY2MyNTRmZTNiZmImZT0xNzg5NDg0NDAw/014/495/0731/500801_806364bdmq7408qy6b5n88_Z.jpg", "photo_ascii": "Vladimir_Spasic_I59.jpg", "photo_orig": "Vladimir_Spasic_I59.jpg", "photo": "Vladimir_Spasic_I59.jpg"}, {"id": "@I60@", "name": "Tanja Dragicevic", "gender": "F", "birth_full": "1963-05-05", "death_full": "", "birth_year": "1963", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Vladimira Spasića.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTg5NzQ4MTljNjE1Njc0OWI4OGY1YTc5MmIyMTQzMDFmMDQ5MDNjZGM2ODNhYTQ0NzkxYmM3YzExNjkyMTg3ZTAmZT0xNzg5NDg0NDAw/014/495/0731/503911_505885a071yco0036kn8ct_A.jpg", "photo_ascii": "Tanja_Dragicevic_I60.jpg", "photo_orig": "Tanja_Dragicevic_I60.jpg", "photo": "Tanja_Dragicevic_I60.jpg"}, {"id": "@I61@", "name": "Todor Spasic", "gender": "M", "birth_full": "1988-07-16", "death_full": "", "birth_year": "1988", "death_year": "", "birth_place": "Beograd", "death_place": "", "is_deceased": false, "notes": "Tošica. Imenjak dede Todora. Sin Vladimira i Tanje.", "email": "sujveyorspasic@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWU2MzBmNDM3YjJlMWIxZDNmZmUzZTRkYzJlNTE2MWRhMzViYTNmMGNkZmJiOTAwN2VhNzM2M2M2MTRiMThjYzkmZT0xNzg5NDg0NDAw/014/495/0731/500821_850019ie60vyae34f2w0e2_F.jpg", "photo_ascii": "Todor_Spasic_I61.jpg", "photo_orig": "Todor_Spasic_I61.jpg", "photo": "Todor_Spasic_I61.jpg"}, {"id": "@I62@", "name": "Silvana Spasic", "gender": "F", "birth_full": "1991-01-05", "death_full": "", "birth_year": "1991", "death_year": "", "birth_place": "Beograd-bolnica Dragiša Mišović", "death_place": "", "is_deceased": false, "notes": "Ćerka Vladimira i Tanje.", "email": "prdisa@hotmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTZmN2RjNDJjMGEzOTEyNjFiYmQzNzEwMmMwNzEyOWNlODA2MzNkMWJkYmU2YjE0OGUwZjgwYWE5NjBmNmQwODUmZT0xNzg5NDg0NDAw/014/495/0731/503981_39426300y485a8s191n696_A.jpg", "photo_ascii": "Silvana_Spasic_I62.jpg", "photo_orig": "Silvana_Spasic_I62.jpg", "photo": "Silvana_Spasic_I62.jpg"}, {"id": "@I63@", "name": "Tom Carroll", "gender": "M", "birth_full": "1929", "death_full": "", "birth_year": "1929", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac Dejvida Karola.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTJlNDBiOTlkYzBlZDU3ZDJjZThlODU3OTUzYWVmNDUxMTkyOGYxMDZhMDQzZGQ4M2Y3NWZhNjM1OWY0YzA3MGEmZT0xNzg5NDg0NDAw/014/495/0731/503780_9333224e8x23e0zboe530c_C.jpg", "photo_ascii": "Tom_Carroll_I63.jpg", "photo_orig": "Tom_Carroll_I63.jpg", "photo": "Tom_Carroll_I63.jpg"}, {"id": "@I64@", "name": "Eleonore Carroll", "gender": "F", "birth_full": "1935", "death_full": "", "birth_year": "1935", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Majka Dejvida Karola.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWFjYTFiMTNmNDQ4YTE4ZWY1M2YyOGUyMTQ5MjUyMjM0YmYzNmYzYjg0NzhmYWNkYzFlNTUxNzBkODNkNzQxMjImZT0xNzg5NDg0NDAw/014/495/0731/503765_2059004x2btv4a0v592db2_F.jpg", "photo_ascii": "Eleonore_Carroll_I64.jpg", "photo_orig": "Eleonore_Carroll_I64.jpg", "photo": "Eleonore_Carroll_I64.jpg"}, {"id": "@I65@", "name": "Paul Carroll", "gender": "M", "birth_full": "1962", "death_full": "", "birth_year": "1962", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Brat Dejvida Karola.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWU2MzM5OTFjYmY5MDk4YzA3NzlmNDFiMjFjYWZmZjA0ZTU3NTMyMDU5ODk4ZjkzM2M3Zjk5NzYzNTYyY2Y0MWQmZT0xNzg5NDg0NDAw/014/495/0731/503767_886891pk0c94g12odx502a_C.jpg", "photo_ascii": "Paul_Carroll_I65.jpg", "photo_orig": "Paul_Carroll_I65.jpg", "photo": "Paul_Carroll_I65.jpg"}, {"id": "@I66@", "name": "Robert Carroll", "gender": "M", "birth_full": "1961", "death_full": "", "birth_year": "1961", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Brat Dejvida Karola.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWZkYWFiMGU5OTdiZWY1NGU4NmNjNmU1MmE3MTAzYzQxYjlmOWQzOTVkMDk5YTI3ZGE0ZjM4ODljZDEyYmVhZWEmZT0xNzg5NDg0NDAw/014/495/0731/503775_636364m5d063wfj5d2820t_C.jpg", "photo_ascii": "Robert_Carroll_I66.jpg", "photo_orig": "Robert_Carroll_I66.jpg", "photo": "Robert_Carroll_I66.jpg"}, {"id": "@I67@", "name": "Tomas Carroll", "gender": "M", "birth_full": "1958", "death_full": "", "birth_year": "1958", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Brat Dejvida Karola.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPThmNDZmZDU3OTU5ZGEzNTAzNjNmYTU5ZDFkYjBlZjUzMDFmYWUxZTEzMzgxYTE4ZWZkOGQzMjQxZTg3NmQ1ZjcmZT0xNzg5NDg0NDAw/014/495/0731/503772_9190965123366020aurvda_F.jpg", "photo_ascii": "Tomas_Carroll_I67.jpg", "photo_orig": "Tomas_Carroll_I67.jpg", "photo": "Tomas_Carroll_I67.jpg"}, {"id": "@I68@", "name": "Anne Carroll", "gender": "F", "birth_full": "1959", "death_full": "", "birth_year": "1959", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Dejvida Karola.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTE5NDAzOTFiNTY2MTQzYTEyNjU3NDc5ZDQxN2MyYWEyNjI3NDE3NWQyMTMzNTcwOTg1N2M2NDFlNGM4YTE3MTcmZT0xNzg5NDg0NDAw/014/495/0731/503769_925556d69hc5ys46m0q293_C.jpg", "photo_ascii": "Anne_Carroll_I68.jpg", "photo_orig": "Anne_Carroll_I68.jpg", "photo": "Anne_Carroll_I68.jpg"}, {"id": "@I70@", "name": "Fotina Dudeva", "gender": "F", "birth_full": "1878", "death_full": "1951-05-24", "birth_year": "1878", "death_year": "1951", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Majka Vere Ivanove. Umrla od starosti. Sahranjena u Bitolju.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWQ0NjU5YWViOWE5ZDMxNjdiMTI2MTlhMTFiYjdmMWNlNjVmZGI2ODA5MTdmNWI0YzE2YjFhNGY4OGJlZTk1NzcmZT0xNzg5NDg0NDAw/014/495/0731/503934_806119b1c7604a8929oc7t_A.jpg", "photo_ascii": "Fotina_Dudeva_I70.jpg", "photo_orig": "Fotina_Dudeva_I70.jpg", "photo": "Fotina_Dudeva_I70.jpg"}, {"id": "@I71@", "name": "Petar Ivanov", "gender": "M", "birth_full": "1875", "death_full": "1949-06-30", "birth_year": "1875", "death_year": "1949", "birth_place": "Eksis kod Lerina, Grčka", "death_place": "Bitolj", "is_deceased": true, "notes": "Otac Vere Ivanove. Učesnik Ilindenskog ustanka. Umro od bolesti bubrega.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTk2YTQ3NWYyMGI2NDVlMzlkNjVjMWI1NTlkYTU2MjE0NWVkYWE5NjlhYmEyZmJlMjVlODRjMjBjODNlNTBlYTkmZT0xNzg5NDg0NDAw/014/495/0731/503932_2715567hfwxm056qa16b50_A.jpg", "photo_ascii": "Petar_Ivanov_I71.jpg", "photo_orig": "Petar_Ivanov_I71.jpg", "photo": "Petar_Ivanov_I71.jpg"}, {"id": "@I73@", "name": "Angelina Ivanov", "gender": "F", "birth_full": "1902", "death_full": "1989-08-07", "birth_year": "1902", "death_year": "1989", "birth_place": "", "death_place": "Bitolj", "is_deceased": true, "notes": "Prof. Sestra Vere Ivanove. Udata Taskova.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA5ZmM4MmZlM2ZmYjJlN2RmYmJhZGQ3YTAxM2ZlZDFjMjNiNWRiOWEwZGE3MDg1MGZkZWJhNmI0NmJlNWJlZGEmZT0xNzg5NDg0NDAw/014/495/0731/503301_5332391072428cadle2db2_Z.jpg", "photo_ascii": "Angelina_Ivanov_I73.jpg", "photo_orig": "Angelina_Ivanov_I73.jpg", "photo": "Angelina_Ivanov_I73.jpg"}, {"id": "@I74@", "name": "Kiro Ivanov", "gender": "M", "birth_full": "1908", "death_full": "1948-10-17", "birth_year": "1908", "death_year": "1948", "birth_place": "", "death_place": "Skoplje", "is_deceased": true, "notes": "Agronom. Brat Vere Ivanove. Umro u zatvoru (samoubistvo).", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU1YmVjODRkZWY0MGRjZGZjNjVjZDRlOTgwMTRkMjcxYjk3MzdiNWRkMGQ0NGNmYjYwODE5NzJhZWU3NDQ5ZDUmZT0xNzg5NDg0NDAw/014/495/0731/503281_216687133wa6c4l2fp1i5e_D.jpg", "photo_ascii": "Kiro_Ivanov_I74.jpg", "photo_orig": "Kiro_Ivanov_I74.jpg", "photo": "Kiro_Ivanov_I74.jpg"}, {"id": "@I75@", "name": "Risto Ivanov", "gender": "M", "birth_full": "1912", "death_full": "1996-10-03", "birth_year": "1912", "death_year": "1996", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Brat Vere Ivanove. Umro od starosti.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA2MjEzMmU1YTgxY2Y1OGE2MTgwNDcwM2Y2Y2RlMTJkOWU0MzJhYWEyZTM5NDYzOTQ3NzZkYzZlYjFkNjJjZjUmZT0xNzg5NDg0NDAw/014/495/0731/503840_537493uc97m5d0ga503ta8_W.jpg", "photo_ascii": "Risto_Ivanov_I75.jpg", "photo_orig": "Risto_Ivanov_I75.jpg", "photo": "Risto_Ivanov_I75.jpg"}, {"id": "@I76@", "name": "Olga Piper", "gender": "F", "birth_full": "1900-03-10", "death_full": "1978-07-11", "birth_year": "1900", "death_year": "1978", "birth_place": "Kotor", "death_place": "Beograd-državna bolnica", "is_deceased": true, "notes": "Udata Bauk. Majka Olivere Bauk. Sahranjena na Topčiderskom groblju.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTlmNzNiNTk3ZmI0Y2I1NzRiNzliOGQ0MzRlYTFjN2Q0MTBmYjY5NjIzZGM4OGM2OTRkNjJhNWI4OWIxMjczNGQmZT0xNzg5NDg0NDAw/014/495/0731/503974_09451387at3147a5uri66f_A.jpg", "photo_ascii": "Olga_Piper_I76.jpg", "photo_orig": "Olga_Piper_I76.jpg", "photo": "Olga_Piper_I76.jpg"}, {"id": "@I83@", "name": "Antonije Bauk", "gender": "M", "birth_full": "1896", "death_full": "1948-10-17", "birth_year": "1896", "death_year": "1948", "birth_place": "Lastva Grbaljska-Budva", "death_place": "", "is_deceased": true, "notes": "Otac Olivere Bauk. Umro od tuberkuloze. Sahranjen u Lastvi.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWQzNTJhNmJiNDVjOWYyYzk4MDIwNGQ5ZjJhYTNjMjZjYzg4ODM3MTMxNjEwYWNmMjEwNGE5Mzc1ZDYxOGRhODkmZT0xNzg5NDg0NDAw/014/495/0731/503972_0725173ua46c0m1w4fy7h5_A.jpg", "photo_ascii": "Antonije_Bauk_I83.jpg", "photo_orig": "Antonije_Bauk_I83.jpg", "photo": "Antonije_Bauk_I83.jpg"}, {"id": "@I84@", "name": "Dr. Lazic", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Mire Klasnje.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I88@", "name": "Joko Bauk", "gender": "M", "birth_full": "1863", "death_full": "1908", "birth_year": "1863", "death_year": "1908", "birth_place": "Lastva Grbaljska-Budva", "death_place": "Lastva Grbaljska-Budva", "is_deceased": true, "notes": "Otac Antonija Bauka. Umro od tuberkuloze pluća.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I89@", "name": "Manda Dajcic", "gender": "F", "birth_full": "1868", "death_full": "1955", "birth_year": "1868", "death_year": "1955", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Udata Bauk. Majka Antonija Bauka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWZlZDU2NzQ2ZTFmZmQxMTYxNTRkOTg3ZWRlZTdkYjExMTZjZjk2NmJkNjliYTMyYjg5MTBhNGU2MjY3MWY2YjAmZT0xNzg5NDg0NDAw/014/495/0731/503848_758109fba9899l42b541ab_X.jpg", "photo_ascii": "Manda_Dajcic_I89.jpg", "photo_orig": "Manda_Dajcic_I89.jpg", "photo": "Manda_Dajcic_I89.jpg"}, {"id": "@I90@", "name": "Dusan Bauk", "gender": "M", "birth_full": "1927", "death_full": "1999-07-30", "birth_year": "1927", "death_year": "1999", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Brat Olivere Bauk.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWNjMmEzMThhZDJkMDhjYTE4NmY1OTczNzY2Njc3OWIwODlhMGU0ZmFkNDQwNWRjNTIyNjNiNWFkNmMzZGZiMDAmZT0xNzg5NDg0NDAw/014/495/0731/501111_617812bdn4dz78fc095d0a_D.jpg", "photo_ascii": "Dusan_Bauk_I90.jpg", "photo_orig": "Dusan_Bauk_I90.jpg", "photo": "Dusan_Bauk_I90.jpg"}, {"id": "@I91@", "name": "Vasilije Bauk", "gender": "M", "birth_full": "1931-07-05", "death_full": "1998-05-05", "birth_year": "1931", "death_year": "1998", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Brat Olivere Bauk.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTg5ZGU5N2MyNzNhZjEzM2FlNjMxNjA1NDk2ZTQ2NzdjOTUxMzE1Yzk1OGU3ZGM5OTVjNDRmZjAzYTA5NTUzMTYmZT0xNzg5NDg0NDAw/014/495/0731/503651_122847spfa5c2gd4j82w3b_F.JPG", "photo_ascii": "Vasilije_Bauk_I91.jpg", "photo_orig": "Vasilije_Bauk_I91.jpg", "photo": "Vasilije_Bauk_I91.jpg"}, {"id": "@I92@", "name": "Predrag Bauk", "gender": "M", "birth_full": "1953-11-25", "death_full": "", "birth_year": "1953", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Dušana Bauka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTkwOWZlODA2NDU4MjIzZjYzMDNlYWU2ZWI0MGZiY2E2NzM3NGRiNTFiMzZmNGMzOGYyYzBlYjQwODJhN2Q0NjMmZT0xNzg5NDg0NDAw/014/495/0731/502851_68162904eze45l29qzf45f_Z.JPG", "photo_ascii": "Predrag_Bauk_I92.jpg", "photo_orig": "Predrag_Bauk_I92.jpg", "photo": "Predrag_Bauk_I92.jpg"}, {"id": "@I93@", "name": "Anka Zivkovic", "gender": "F", "birth_full": "1934", "death_full": "2011-05-26", "birth_year": "1934", "death_year": "2011", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Udata Bauk. Supruga Dušana Bauka. Umrla od starosti.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU5NTljYzJmMGQwYWQ1OGIzYzk5YWQ3Yzc5MGY5NTM0YTE5YmE3YWM1YmVmNmM5ZjE4M2I4NDFhMzIyMmY5MjYmZT0xNzg5NDg0NDAw/014/495/0731/503975_279864v93541za5jv7vbf6_A.jpg", "photo_ascii": "Anka_Zivkovic_I93.jpg", "photo_orig": "Anka_Zivkovic_I93.jpg", "photo": "Anka_Zivkovic_I93.jpg"}, {"id": "@I96@", "name": "Jelena Spasic", "gender": "F", "birth_full": "1893", "death_full": "1955", "birth_year": "1893", "death_year": "1955", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Sestra Todora Spasića. Udata Sremčević.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU5NDU3ODc3OTY4ZGNiZDZjZDcwOWRlZTExMjMxZjZmZTdmMDU3NDA0NmFlMzYzNDI1NTEzZmM4NDcxMDNhOTAmZT0xNzg5NDg0NDAw/014/495/0731/502191_349612921a4ek12ys7lbo0_Z.jpg", "photo_ascii": "Jelena_Spasic_I96.jpg", "photo_orig": "Jelena_Spasic_I96.jpg", "photo": "Jelena_Spasic_I96.jpg"}, {"id": "@I98@", "name": "Ivanka Sremcevic", "gender": "F", "birth_full": "1916", "death_full": "2006", "birth_year": "1916", "death_year": "2006", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Udata Arabadjijeva. Ćerka Jelene Spasić.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTQ1OWZmYTYxN2Y1OGM2NTBjY2Q0ZWI0Nzc5ZDhmNzQyMmZkZDM2YzhhODM1ZTBlNmIwNTkxZjQ1Yjk4MWYwMTkmZT0xNzg5NDg0NDAw/014/495/0731/503960_3762687yzj1tay8269ebea_A.jpg", "photo_ascii": "Ivanka_Sremcevic_I98.jpg", "photo_orig": "Ivanka_Sremcevic_I98.jpg", "photo": "Ivanka_Sremcevic_I98.jpg"}, {"id": "@I100@", "name": "Ivan Arabadjijev", "gender": "M", "birth_full": "1900", "death_full": "1972", "birth_year": "1900", "death_year": "1972", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Suprug Ivanke Sremčević.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWNlYjE4ZTk4MzE5ZDhhNWZjODgyN2JlZGFiZDQ5ZmEyZTMzZDhjMjJhNDc0Y2Q2NmM2ZTg2ZDIzMmFkZDgyNGQmZT0xNzg5NDg0NDAw/014/495/0731/503951_718698897my2f78ah36561_A.jpg", "photo_ascii": "Ivan_Arabadjijev_I100.jpg", "photo_orig": "Ivan_Arabadjijev_I100.jpg", "photo": "Ivan_Arabadjijev_I100.jpg"}, {"id": "@I104@", "name": "Nada Gerakarova", "gender": "F", "birth_full": "1916-04-08", "death_full": "2007-01-22", "birth_year": "1916", "death_year": "2007", "birth_place": "Prilep", "death_place": "", "is_deceased": true, "notes": "Udata Ivanova. Supruga Rista Ivanova.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU3NzMxNGYxYzZlOTgzM2JhOWZhYWZmMzg0OGI2YjFkNmU5ZTJhMGMyOGViODQwY2NlZWFkZTM4YmEzYTBmODcmZT0xNzg5NDg0NDAw/014/495/0731/501871_700239l1ee4ibm74n2295e_Z.JPG", "photo_ascii": "Nada_Gerakarova_I104.jpg", "photo_orig": "Nada_Gerakarova_I104.jpg", "photo": "Nada_Gerakarova_I104.jpg"}, {"id": "@I105@", "name": "Angelina Ivanova", "gender": "F", "birth_full": "1940-04-26", "death_full": "", "birth_year": "1940", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Prof. Udata Dimitrovska. Ćerka Rista Ivanova.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTQ4MDZiNDI0MzY2OWE2ODI4MGY2MDg2ODQwZWY2ZDE5NjRiMmQxMGViNDA1NTY4ODcwZDQ3Y2UwMGJhNTI2YjkmZT0xNzg5NDg0NDAw/014/495/0731/502011_31420245825k85p8k01e42_Z.JPG", "photo_ascii": "Angelina_Ivanova_I105.jpg", "photo_orig": "Angelina_Ivanova_I105.jpg", "photo": "Angelina_Ivanova_I105.jpg"}, {"id": "@I106@", "name": "Violeta Ivanov", "gender": "F", "birth_full": "1952-05-01", "death_full": "", "birth_year": "1952", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Vuksanović. Ćerka Rista Ivanova.", "email": "violetav@t-com.me", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTQxMzU5MzQ6MDFhNDYyMTEwNTIxYjY3ZWQ0M2E3YjM4NmIzNDI5MmYxN2VjYzI1N2M0NTYxMWNlOWE3NjM2OWEmZT0xNzg5NDg0NDAw/014/495/0731/501741_6254156sec4dgi3l4k0l72_D.JPG", "photo_ascii": "Violeta_Ivanov_I106.jpg", "photo_orig": "Violeta_Ivanov_I106.jpg", "photo": "Violeta_Ivanov_I106.jpg"}, {"id": "@I108@", "name": "Ivan Tkacev", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "Eksis kod Lerina, Grčka", "death_place": "", "is_deceased": false, "notes": "Deda Petra Ivanova. Po njemu nastali Ivanovići.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I115@", "name": "Stevan Raseta", "gender": "M", "birth_full": "1933", "death_full": "2009", "birth_year": "1933", "death_year": "2009", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Otac Gorane Rašeta. Umro od raka debelog creva.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTNhNDY1M2I4MDBjYTgwNWFiY2Q5YWUzYzJlZDE4OTNhOWZjOGE5OTU5NTFhZGY3NjYxZjUzM2QzMTNjZjdjNWImZT0xNzg5NDg0NDAw/014/495/0731/503968_48717461d7qwd1a8lb98s3_A.jpg", "photo_ascii": "Stevan_Raseta_I115.jpg", "photo_orig": "Stevan_Raseta_I115.jpg", "photo": "Stevan_Raseta_I115.jpg"}, {"id": "@I116@", "name": "Milica Raseta", "gender": "F", "birth_full": "1937", "death_full": "2004", "birth_year": "1937", "death_year": "2004", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Majka Gorane Rašeta.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU2NzVlNGE2NjA5MTQ5ZmEyOWYyYzNlNjJlMGI4NTJjM2Q0NTc4MjQxMmRlNDY2Mzc2MDYyYWU4NjZkOWE3OTkmZT0xNzg5NDg0NDAw/014/495/0731/503966_80323081d8140n96187as9_A.jpg", "photo_ascii": "Milica_Raseta_I116.jpg", "photo_orig": "Milica_Raseta_I116.jpg", "photo": "Milica_Raseta_I116.jpg"}, {"id": "@I124@", "name": "Mirjana Dragicevic", "gender": "F", "birth_full": "1957", "death_full": "", "birth_year": "1957", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Stojanović. Sestra Tanje Dragićević.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTI3ZjcwODJlNGIyOTZhNjlkYmYyNjUwZWQ3YzM0MDBlM2Y2ODFkNDBjZDBhNmFjMmU1NWI4MWIzNWUwMGRhYmImZT0xNzg5NDg0NDAw/014/495/0731/502211_1801356p2436vv242c0ed2_Z.jpg", "photo_ascii": "Mirjana_Dragicevic_I124.jpg", "photo_orig": "Mirjana_Dragicevic_I124.jpg", "photo": "Mirjana_Dragicevic_I124.jpg"}, {"id": "@I125@", "name": "Vuko Piper", "gender": "M", "birth_full": "1861-12-27", "death_full": "1916-04-27", "birth_year": "1861", "death_year": "1916", "birth_place": "Kotor", "death_place": "", "is_deceased": true, "notes": "Otac Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I126@", "name": "Marica Jovanovic", "gender": "F", "birth_full": "1868-08-10", "death_full": "1923-04-11", "birth_year": "1868", "death_year": "1923", "birth_place": "Kotor", "death_place": "Dubrovnik", "is_deceased": true, "notes": "Udata Piper. Majka Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I136@", "name": "Marko Bauk", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "Beograd", "death_place": "", "is_deceased": false, "notes": "Sin Predraga Bauka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTM2ODAyOTkxOGUyMTkzYjgzOTExM2IxNmIxYWM3OTNhNDJlNzc0NGI2NDM1YjNmNDNhMDczZGUxNTkwNDUyZWYmZT0xNzg5NDg0NDAw/014/495/0731/503983_094722d1at19bd67b27q48_A.jpg", "photo_ascii": "Marko_Bauk_I136.jpg", "photo_orig": "Marko_Bauk_I136.jpg", "photo": "Marko_Bauk_I136.jpg"}, {"id": "@I138@", "name": "Ana Bauk", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "Beograd-državna bolnica", "death_place": "", "is_deceased": false, "notes": "Ćerka Predraga Bauka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWY0YjRjNzYyN2ViNzcxYTQ3MTg5YzBlNzdlMzllMmE0NDU4ZGI4ZWVjMzcyZjg3NDAzNDQyNTM2Y2FiNDk2N2MmZT0xNzg5NDg0NDAw/014/495/0731/503984_3841337o8dat62d8g1q4db_A.jpg", "photo_ascii": "Ana_Bauk_I138.jpg", "photo_orig": "Ana_Bauk_I138.jpg", "photo": "Ana_Bauk_I138.jpg"}, {"id": "@I139@", "name": "Juliana Miletic", "gender": "F", "birth_full": "1934-01-20", "death_full": "", "birth_year": "1934", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Bauk. Supruga Vasilija Bauka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTViMmEwNWYyMTAyZDNlMDcyMjRkM2FhY2FkYmNhMTAxMzFlNzFlMDk3MzY2MTU2NTcyYjZiNDRjOWEyMjlmZWQmZT0xNzg5NDg0NDAw/014/495/0731/501081_810483ou4f8d0dcva1et98_D.JPG", "photo_ascii": "Juliana_Miletic_I139.jpg", "photo_orig": "Juliana_Miletic_I139.jpg", "photo": "Juliana_Miletic_I139.jpg"}, {"id": "@I140@", "name": "Dule Bauk", "gender": "M", "birth_full": "1967-07-17", "death_full": "", "birth_year": "1967", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Dušan Bauk. Sin Vasilija Bauka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTc3MzliY2JhNmFhOTEwZTcyZmY2MjdiNGVmM2ExNzlmM2Q4NjllOGIxN2M5ZmM5OWZhMTU1MzYwMzdkMjY4OTcmZT0xNzg5NDg0NDAw/014/495/0731/503976_3136999aa6f9176ih923eb_A.jpg", "photo_ascii": "Dule_Bauk_I140.jpg", "photo_orig": "Dule_Bauk_I140.jpg", "photo": "Dule_Bauk_I140.jpg"}, {"id": "@I142@", "name": "Dejana Cvetkovic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Duleta Bauka.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I143@", "name": "Stefan Bauk", "gender": "M", "birth_full": "2002-01-17", "death_full": "", "birth_year": "2002", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Duleta i Dejane.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I144@", "name": "Milorad Miletic", "gender": "M", "birth_full": "1906", "death_full": "", "birth_year": "1906", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac Juliane Miletić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I145@", "name": "Zorka Lazarevic", "gender": "F", "birth_full": "1916", "death_full": "", "birth_year": "1916", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Miletić. Majka Juliane Miletić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I146@", "name": "Kristina Tester", "gender": "F", "birth_full": "1992-05-14", "death_full": "", "birth_year": "1992", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Bliznakinja sa Annalizom (rođena druga).", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWM2MmE1MjMwODkyN2Q5MTIzODhkMTE2ZjY5N2U1ZjZmYjQ4NmE4YzM0M2RjYWYwM2VkODVkMGJhNDc5MTlmNzYmZT0xNzg5NDg0NDAw/014/495/0731/500351_387945d6b4tjd608gh6p7b_Z.jpg", "photo_ascii": "Kristina_Tester_I146.jpg", "photo_orig": "Kristina_Tester_I146.jpg", "photo": "Kristina_Tester_I146.jpg"}, {"id": "@I149@", "name": "Joakim Sremcevic", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Jelene Spasić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I151@", "name": "Dimitar Dimitrovski", "gender": "M", "birth_full": "1933-08-18", "death_full": "2020-10-26", "birth_year": "1933", "death_year": "2020", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Suprug Angeline Ivanove.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTExNDVmYTQ4M2E3ZmY3OGQ2Zjc0NGY3YTg1NDNhYjRiZTY3ODRkMWZhZjE0ZTNjNTI1OTU4M2FhYWMxMzA5NzcmZT0xNzg5NDg0NDAw/014/495/0731/502021_1538882928824e6cq4q2e8_D.JPG", "photo_ascii": "Dimitar_Dimitrovski_I151.jpg", "photo_orig": "Dimitar_Dimitrovski_I151.jpg", "photo": "Dimitar_Dimitrovski_I151.jpg"}, {"id": "@I152@", "name": "Natasa Dimitrovska", "gender": "F", "birth_full": "1969-10-24", "death_full": "", "birth_year": "1969", "death_year": "", "birth_place": "Bitolj", "death_place": "", "is_deceased": false, "notes": "Udata Ahmeti. Profesorka klavira u Skoplju.", "email": "natashadimitrovska@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTAwZTNkOTA2NzExNGFjNWYxNTM2Nzk1Mzc4ZTE3ZGI0YTZhMTU5Mjc1Zjc2MzMzZDgwZGJkMzY3MjQwNDMxNzQmZT0xNzg5NDg0NDAw/014/495/0731/503853_48245955mkzfq16659a792_X.jpg", "photo_ascii": "Natasa_Dimitrovska_I152.jpg", "photo_orig": "Natasa_Dimitrovska_I152.jpg", "photo": "Natasa_Dimitrovska_I152.jpg"}, {"id": "@I153@", "name": "Konstantin Dimitrovski", "gender": "M", "birth_full": "1966-12-24", "death_full": "", "birth_year": "1966", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Konzervator u Skoplju. Sin Angeline i Dimitra.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWNlYzg5YmZjNDFkOTc5MDk4YzI1NTYzNTIzMjhmMjU2N2Q3NTY3ZDE4NzJjNTdlODJiMTE5NTQwOTQ1OTliMWEmZT0xNzg5NDg0NDAw/014/495/0731/503868_193219xz8793v255cb8a13_W.jpg", "photo_ascii": "Konstantin_Dimitrovski_I153.jpg", "photo_orig": "Konstantin_Dimitrovski_I153.jpg", "photo": "Konstantin_Dimitrovski_I153.jpg"}, {"id": "@I156@", "name": "Nenad Vuksanovic", "gender": "M", "birth_full": "1950-06-09", "death_full": "2013-03-22", "birth_year": "1950", "death_year": "2013", "birth_place": "", "death_place": "Kotor", "is_deceased": true, "notes": "Dr. Suprug Violete Ivanov. Umro od medicinskog problema.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTI0MDZmZTE1M2MyMTA1YWYzZWZmZDZkMjMxY2QwMzRhMzM1YTI0OTkxMWU5YTdkMTE3OTZlNDZiODU3MzRiZWMmZT0xNzg5NDg0NDAw/014/495/0731/501771_189680d23e1deb76b40v4b_Z.JPG", "photo_ascii": "Nenad_Vuksanovic_I156.jpg", "photo_orig": "Nenad_Vuksanovic_I156.jpg", "photo": "Nenad_Vuksanovic_I156.jpg"}, {"id": "@I157@", "name": "Milos Vuksanovic", "gender": "M", "birth_full": "1975-10-13", "death_full": "", "birth_year": "1975", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Violete i Nenada.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA4ZjJkMDYyYTM5M2U0NzQzMmU0MTYzNzRiNWNjNzhmOGY3ZTFkNWYwODA4ZDMxY2FhMDlmYzQ4MzVjMjEyNjkmZT0xNzg5NDg0NDAw/014/495/0731/501761_181436el20d837t4h6e221_D.JPG", "photo_ascii": "Milos_Vuksanovic_I157.jpg", "photo_orig": "Milos_Vuksanovic_I157.jpg", "photo": "Milos_Vuksanovic_I157.jpg"}, {"id": "@I158@", "name": "Martina Vuksanovic", "gender": "F", "birth_full": "1983-12-10", "death_full": "", "birth_year": "1983", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Petkovski. Ćerka Violete i Nenada.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPUE0ODcxYmRjZDdlNjQzN2RlZjJmNDY4MTBhNTQ3YmRmM2E4NjcxMjA5ZmEyNWIwZjUwMmVlNmY5NzAwZjRjNDAmZT0xNzg5NDg0NDAw/014/495/0731/501751_280030de0427q73ftm4d25_Z.JPG", "photo_ascii": "Martina_Vuksanovic_I158.jpg", "photo_orig": "Martina_Vuksanovic_I158.jpg", "photo": "Martina_Vuksanovic_I158.jpg"}, {"id": "@I159@", "name": "Marija Ivanova", "gender": "F", "birth_full": "1948-10-04", "death_full": "", "birth_year": "1948", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Muzičar. Udata Gjakonovska. Ćerka Rista Ivanova.", "email": "marigjak@yahoo.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTc3OTgwMmFmYzA4MWRkZDFmMjA4NjFmNDY0NjI4MTQyMGIxZGNhN2RlZDkxNDAwYzgxNzUmZT0xNzg5NDg0NDAw/014/495/0731/502821_9254922122m3e7jb6y04e4_D.jpg", "photo_ascii": "Marija_Ivanova_I159.jpg", "photo_orig": "Marija_Ivanova_I159.jpg", "photo": "Marija_Ivanova_I159.jpg"}, {"id": "@I160@", "name": "Dragan Gjakonovski", "gender": "M", "birth_full": "1931-03-11", "death_full": "1987-01-03", "birth_year": "1931", "death_year": "1987", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Kompozitor. Suprug Marije Ivanove. Umro od srčanog udara.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU3ODQ5YjE5NTlkMWUxMDZlNjViNjhiZTQwYzhkYWYxNDE0NjdmZDIyNzEzYjI3MjJmMDZmMGM1MTQ4NGU1ZjEmZT0xNzg5NDg0NDAw/014/495/0731/503762_097017dg2603r0c9d15217_F.jpg", "photo_ascii": "Dragan_Gjakonovski_I160.jpg", "photo_orig": "Dragan_Gjakonovski_I160.jpg", "photo": "Dragan_Gjakonovski_I160.jpg"}, {"id": "@I161@", "name": "Dejan Nikolic", "gender": "M", "birth_full": "1970-10-20", "death_full": "", "birth_year": "1970", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Radmile Stefanović i Tadije Nikolića.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I162@", "name": "Zivka (Stefanovic)", "gender": "F", "birth_full": "1898", "death_full": "1986-12-29", "birth_year": "1898", "death_year": "1986", "birth_place": "", "death_place": "Niš", "is_deceased": true, "notes": "Supruga Lazara Stefanovića. Umrla od starosti.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTFmMDIwMmFjNTk4YmFhYzQ2NmViYjA4Y2YzZDc3ZWVhNTIzYjI0MWExYWYyN2E4ZTg1MjdlZWUwOTNhYzVhMTAmZT0xNzg5NDg0NDAw/014/495/0731/502131_53231342e3b1n3412cci35_D.jpg", "photo_ascii": "Zivka_Stefanovic_I162.jpg", "photo_orig": "Zivka_(Stefanovic)_I162.jpg", "photo": "Zivka_Stefanovic_I162.jpg"}, {"id": "@I163@", "name": "Paraskeva (Ivanova)", "gender": "F", "birth_full": "1926", "death_full": "1989", "birth_year": "1926", "death_year": "1989", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Supruga Kiira Ivanova. Umrla od raka.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWZiZTI0ZWRiYTZlZTdmN2YxNGY5NzkyNDYwZjlkOGYwNmZkNmY1ODU0YTMwOTZmMGUwNjQ5YTMxMTc5ZjE3NmUmZT0xNzg5NDg0NDAw/014/495/0731/502111_378697eb082c31241m1p72_Z.jpg", "photo_ascii": "Paraskeva_Ivanova_I163.jpg", "photo_orig": "Paraskeva_(Ivanova)_I163.jpg", "photo": "Paraskeva_Ivanova_I163.jpg"}, {"id": "@I164@", "name": "Petar Pepa Ivanov", "gender": "M", "birth_full": "1943-04-17", "death_full": "1950-10-18", "birth_year": "1943", "death_year": "1950", "birth_place": "Ohrid", "death_place": "Beograd", "is_deceased": true, "notes": "Sin Kire i Paraskeve. Umro mlad. Sahranjen na Novom groblju.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTkyMzM0YTViMzYxODM2ODkyZjhjNGQ5YmVjODMyNTkxNjk5YTNlYjYzYThkYzZmNjRkNjA4NTg4NTUzMTYyYzgmZT0xNzg5NDg0NDAw/014/495/0731/502091_055953n401db2204e4szc1_D.jpg", "photo_ascii": "Petar_Pepa_Ivanov_I164.jpg", "photo_orig": "Petar_Pepa_Ivanov_I164.jpg", "photo": "Petar_Pepa_Ivanov_I164.jpg"}, {"id": "@I165@", "name": "Asen Senco Ivanov", "gender": "M", "birth_full": "1944-07-18", "death_full": "", "birth_year": "1944", "death_year": "", "birth_place": "Ohrid", "death_place": "", "is_deceased": false, "notes": "Sin Kire i Paraskeve.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWJiMjYzYmYyMzE4ZjRlMWZlZGU5Y2JlZmZlNjk5NTcyNTRjMWQ3OGMyZDcxMDZmYTkyNDVmZjlkNjljODkyYjEmZT0xNzg5NDg0NDAw/014/495/0731/502661_395079e68y0924y3721a6m_Z.jpg", "photo_ascii": "Asen_Senco_Ivanov_I165.jpg", "photo_orig": "Asen_Senco_Ivanov_I165.jpg", "photo": "Asen_Senco_Ivanov_I165.jpg"}, {"id": "@I172@", "name": "Zivota Dragicevic", "gender": "M", "birth_full": "1932", "death_full": "2010-08-01", "birth_year": "1932", "death_year": "2010", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Otac Tanje Dragićević. Umro od bolesti srca.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTJmNjhlYTljYjNlZWQ0MWZhNzdkMTNjYzFmYWY3MDViY2IxMWVkYmNmNjA2YTgxMWExMTc0OWU0ZWNhZDlmODImZT0xNzg5NDg0NDAw/014/495/0731/502561_43315834fd9521ke212ebr_Z.jpg", "photo_ascii": "Zivota_Dragicevic_I172.jpg", "photo_orig": "Zivota_Dragicevic_I172.jpg", "photo": "Zivota_Dragicevic_I172.jpg"}, {"id": "@I173@", "name": "Stojanka Garijetovic", "gender": "F", "birth_full": "1936-07-15", "death_full": "", "birth_year": "1936", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Dragićević. Majka Tanje Dragićević.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPThmNjI4NGNlMTlmNWEzZjgxNDgxMzYxYjZmMjExMDljNjY2MmUyZTQ5N2JhYzM0N2YwM2M3YmJiYzhmYTA3YjUmZT0xNzg5NDg0NDAw/014/495/0731/503805_64261672e2sarfr65954ez_P.jpg", "photo_ascii": "Stojanka_Garijetovic_I173.jpg", "photo_orig": "Stojanka_Garijetovic_I173.jpg", "photo": "Stojanka_Garijetovic_I173.jpg"}, {"id": "@I174@", "name": "Ognen Gjakonovski", "gender": "M", "birth_full": "1972-08-27", "death_full": "", "birth_year": "1972", "death_year": "", "birth_place": "Bitola", "death_place": "", "is_deceased": false, "notes": "Muzičar. Sin Marije i Dragana Gjakonovskog.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTZlYWMzOGExNDI2MDQyZmI0OWM3MTQwMzcwZTgwZjVlMmZiYzg1YzBmZTFiY2M2NDA5ZDJhMDcxNWNlOGNiYTQmZT0xNzg5NDg0NDAw/014/495/0731/503641_5613057z3422mmpfcsb8e4_F.jpg", "photo_ascii": "Ognen_Gjakonovski_I174.jpg", "photo_orig": "Ognen_Gjakonovski_I174.jpg", "photo": "Ognen_Gjakonovski_I174.jpg"}, {"id": "@I175@", "name": "Martin Gjakonovski", "gender": "M", "birth_full": "1970-02-21", "death_full": "", "birth_year": "1970", "death_year": "", "birth_place": "Skopje", "death_place": "", "is_deceased": false, "notes": "Muzičar. Sin Marije i Dragana Gjakonovskog.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTA4MDRlMDI0MjJmMWUyYzAwN2U3M2RjOWQ4ZTBlNWUyZWI2MzNhNGQ3MWNiYTU1NGY3NmMzNGJhYTkyNzgyMDkmZT0xNzg5NDg0NDAw/014/495/0731/503621_965494cdf44r4ek249q27a_Z.jpg", "photo_ascii": "Martin_Gjakonovski_I175.jpg", "photo_orig": "Martin_Gjakonovski_I175.jpg", "photo": "Martin_Gjakonovski_I175.jpg"}, {"id": "@I176@", "name": "Dragana Gjakonovska", "gender": "F", "birth_full": "1980-10-14", "death_full": "", "birth_year": "1980", "death_year": "", "birth_place": "Skopje", "death_place": "", "is_deceased": false, "notes": "Muzičar. Ćerka Marije i Dragana. Hristijanka.", "email": "free_daydreamer@yahoo.co.uk", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTQ4NzI5ZDc1YzY4ZWQzZmQyOGRmZDM5NjFiODU3Nzc4MmU4ZWU5ODc0N2JkNjU5MTExZTdhNGJiMjZkZWExYmImZT0xNzg5NDg0NDAw/014/495/0731/503401_385134j54f0629424400t9_D.JPG", "photo_ascii": "Dragana_Gjakonovska_I176.jpg", "photo_orig": "Dragana_Gjakonovska_I176.jpg", "photo": "Dragana_Gjakonovska_I176.jpg"}, {"id": "@I177@", "name": "Ivana Gjakonovska", "gender": "F", "birth_full": "1980-10-14", "death_full": "", "birth_year": "1980", "death_year": "", "birth_place": "Skopje", "death_place": "", "is_deceased": false, "notes": "Muzičar. Ćerka Marije i Dragana Gjakonovskog.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWU5ZGUwNGUxNjUwYmFjZDUwNmJkMDYwYTE5OTFjNWE1ODlkNDQ4ZTk4MTRmYWFjNTdmYWFiNWFmZWRhMDllMTMmZT0xNzg5NDg0NDAw/014/495/0731/502801_881548201745e42412d4bk_Z.jpg", "photo_ascii": "Ivana_Gjakonovska_I177.jpg", "photo_orig": "Ivana_Gjakonovska_I177.jpg", "photo": "Ivana_Gjakonovska_I177.jpg"}, {"id": "@I178@", "name": "Ljiljana Raseta", "gender": "F", "birth_full": "1959", "death_full": "", "birth_year": "1959", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Gorane Rašeta. Udata Laković.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWEwNGE4YjMxNjZiNjc5NTI2YTI4MThmYTI5MWFiM2RiNTNmZTQ2MmM3Njc0MWIxMTBhMzJiZTY2Nzc3ZjU2MzUmZT0xNzg5NDg0NDAw/014/495/0731/503961_5093948da7m6hace167b8c_A.jpg", "photo_ascii": "Ljiljana_Raseta_I178.jpg", "photo_orig": "Ljiljana_Raseta_I178.jpg", "photo": "Ljiljana_Raseta_I178.jpg"}, {"id": "@I179@", "name": "Ivana Lakovic", "gender": "F", "birth_full": "1981", "death_full": "", "birth_year": "1981", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Ljiljane i Borislava.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTZlMjgzNWIzYzQzZTRkOTJlYmIxMWZjMjUxMzZkYTUyZWE3OTFjYTc2YjgwN2RlZTU5ODYzMzA1ODhiOGExMjMmZT0xNzg5NDg0NDAw/014/495/0731/503965_9450141ai7nd27ccs8626x_A.jpg", "photo_ascii": "Ivana_Lakovic_I179.jpg", "photo_orig": "Ivana_Lakovic_I179.jpg", "photo": "Ivana_Lakovic_I179.jpg"}, {"id": "@I180@", "name": "Borislav Lakovic", "gender": "M", "birth_full": "1955", "death_full": "", "birth_year": "1955", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Ljiljane Rašeta.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I181@", "name": "Jovana Lakovic", "gender": "F", "birth_full": "1986", "death_full": "", "birth_year": "1986", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Ljiljane i Borislava.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTViNDZkMWI2MTQ2YTk4MGQ0ZGZiZTM5OTY1NDc2NjJiYWMxZjM4NDcxZDZkYWY1OWM1YzMxODg2NTQxYzRhM2ImZT0xNzg5NDg0NDAw/014/495/0731/503962_811726j99t1m52a62kc78o_A.jpg", "photo_ascii": "Jovana_Lakovic_I181.jpg", "photo_orig": "Jovana_Lakovic_I181.jpg", "photo": "Jovana_Lakovic_I181.jpg"}, {"id": "@I182@", "name": "Djuro Raseta", "gender": "M", "birth_full": "1896", "death_full": "1989", "birth_year": "1896", "death_year": "1989", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Deda Gorane Rašeta.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I183@", "name": "Milka Polovina", "gender": "F", "birth_full": "1906", "death_full": "2002", "birth_year": "1906", "death_year": "2002", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Udata Rašeta. Baba Gorane Rašeta.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I184@", "name": "Dragan Stojanovic", "gender": "M", "birth_full": "1955-11-27", "death_full": "", "birth_year": "1955", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Mirjane Dragićević.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTFkNjgwZjZjYWJlNzIyOTkyNDk0ODFiZjU3YmY0NTkxYmEzNjNmODExMjkwYmZkOWMwOTQwY2Q1ODZlNDIzYzYmZT0xNzg5NDg0NDAw/014/495/0731/502461_4760495y2a51ecpf7r2224_Z.jpg", "photo_ascii": "Dragan_Stojanovic_I184.jpg", "photo_orig": "Dragan_Stojanovic_I184.jpg", "photo": "Dragan_Stojanovic_I184.jpg"}, {"id": "@I185@", "name": "Jana Andreevska", "gender": "F", "birth_full": "1967-04-27", "death_full": "", "birth_year": "1967", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Profesor na FMU Skoplje, kompozitor. Udata Dimitrovski.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWMzMDJiMDdmZTUxNWM2MTgxZmRjMWVmYjk4NzljMDM0MWFkNDY1MDE1YzdmZjc5ZTk4MmI4NDNhYjgyYzQwZmEmZT0xNzg5NDg0NDAw/014/495/0731/503091_8974493fd0nljz42hd26e8_Z.jpg", "photo_ascii": "Jana_Andreevska_I185.jpg", "photo_orig": "Jana_Andreevska_I185.jpg", "photo": "Jana_Andreevska_I185.jpg"}, {"id": "@I190@", "name": "Patricia (Ivanov)", "gender": "F", "birth_full": "1951", "death_full": "", "birth_year": "1951", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Asena Seonča Ivanova.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTgxMzkwYTU1ZmM0MTc5NWNkNjEwZmVjMDhlYzY1MmQyNmJlMzg3MDM0YjMyNzk2NDk2NDQxNDg0MTljMDU4M2UmZT0xNzg5NDg0NDAw/014/495/0731/502981_123853je4121ce61b2nte3_D.jpg", "photo_ascii": "Patricia_Ivanov_I190.jpg", "photo_orig": "Patricia_(Ivanov)_I190.jpg", "photo": "Patricia_Ivanov_I190.jpg"}, {"id": "@I198@", "name": "Gligorije Taskov", "gender": "M", "birth_full": "1900", "death_full": "1975", "birth_year": "1900", "death_year": "1975", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Arhitekta. Suprug Angeline Ivanov.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWY5MGQxMDUzOWY5ZDNjODA5ZTQ2MzQ3NTJjZDZjNzFlMTI2YmFiZWI5YWMyNGJlNmZjODgxZDg2NThjNmE1MWUmZT0xNzg5NDg0NDAw/014/495/0731/501711_80631641e2it3c3a7qb0b0_Z.JPG", "photo_ascii": "Gligorije_Taskov_I198.jpg", "photo_orig": "Gligorije_Taskov_I198.jpg", "photo": "Gligorije_Taskov_I198.jpg"}, {"id": "@I199@", "name": "Vajo Curcic", "gender": "M", "birth_full": "1888-05-05", "death_full": "1971", "birth_year": "1888", "death_year": "1971", "birth_place": "Podum, Lika, Hrvatska", "death_place": "", "is_deceased": true, "notes": "Otac Borislava Ćurčića. Završio pomorsku školu u Rijeci.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWMxMmMwMWY2MGY2YTU1YjY2ZGJjMTc2MzNiYmI1NDE1NjlhZTFjY2NlNWRlZWFjOGFhZjViMmY3MTcwMjZhYTQmZT0xNzg5NDg0NDAw/014/495/0731/502971_951446rel9td2k2b4a547p_Z.jpg", "photo_ascii": "Vajo_Curcic_I199.jpg", "photo_orig": "Vajo_Curcic_I199.jpg", "photo": "Vajo_Curcic_I199.jpg"}, {"id": "@I201@", "name": "Boba Zivkovic", "gender": "F", "birth_full": "", "death_full": "2016-11-28", "birth_year": "", "death_year": "2016", "birth_place": "", "death_place": "Beograd", "is_deceased": true, "notes": "Udata Bauk. Supruga Predraga Bauka. Srčani udar.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTY5Mjc4NTMyZjg3ZDE1ODM5M2ZkMjdjOWY0NWM5MWQyYjA5MDg5OWEyMTliZTM3ZTgwNTUyOWI5NDY5NWYxZTEmZT0xNzg5NDg0NDAw/014/495/0731/503824_372984b0o886k268522057_W.jpg", "photo_ascii": "Boba_Zivkovic_I201.jpg", "photo_orig": "Boba_Zivkovic_I201.jpg", "photo": "Boba_Zivkovic_I201.jpg"}, {"id": "@I202@", "name": "Milica Stankovic", "gender": "F", "birth_full": "1985-09-28", "death_full": "", "birth_year": "1985", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Ognjena Spasića. Ista kao I202.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTVkODE1NTVmZDhhYWMwMTAxMGFmMGVmNjk4MzE3ZmI2MWE1NGI2NjE5ZGI5ODA5OGFkZGQyMjMzNWJjN2MyNjEmZT0xNzg5NDg0NDAw/014/495/0731/502721_1835493vu267g6qe40a274_Z.jpg", "photo_ascii": "Milica_Stankovic_I202.jpg", "photo_orig": "Milica_Stankovic_I202.jpg", "photo": "Milica_Stankovic_I202.jpg"}, {"id": "@I205@", "name": "Marta Puhalo", "gender": "F", "birth_full": "1902", "death_full": "1934", "birth_year": "1902", "death_year": "1934", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Udata Ćurčić. Majka Borislava. Umrla od pobačaja.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWM2NDlhZTkwMzYxMzM3ODc2MzJiN2RjOTQyN2E0ODg2NTlkNzI2ZTI1ZDYzOTM0MGM2NTA3OTRkMTZjMzk5MWUmZT0xNzg5NDg0NDAw/014/495/0731/503131_2238032a64y5kb523cza4e_D.jpg", "photo_ascii": "Marta_Puhalo_I205.jpg", "photo_orig": "Marta_Puhalo_I205.jpg", "photo": "Marta_Puhalo_I205.jpg"}, {"id": "@I206@", "name": "Daniel Petkovski", "gender": "M", "birth_full": "1984-09-02", "death_full": "", "birth_year": "1984", "death_year": "", "birth_place": "Pančevo", "death_place": "", "is_deceased": false, "notes": "Dejan. Suprug Martine Vuksanović.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTM3YTc2MDZkOGVhZWVkMTE0OTdlN2FlZmVjMGRjOTRiMTgwM2RjNDRhMDA2MDA0NTg0Y2Q2NDhhOWNkODAzMmYmZT0xNzg5NDg0NDAw/014/495/0731/502931_392446q650c2slkaev2423_Z.jpg", "photo_ascii": "Daniel_Petkovski_I206.jpg", "photo_orig": "Daniel_Petkovski_I206.jpg", "photo": "Daniel_Petkovski_I206.jpg"}, {"id": "@I207@", "name": "Olivera Bozovic", "gender": "F", "birth_full": "1973-09-06", "death_full": "", "birth_year": "1973", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Vuksanović. Supruga Miloša.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTFhOTYzN2U5ZjYyYmMxNzFiNmNlZjcwYWQwNTU2YTQyYWNlYmUwYjQ3MmZmODI0YTJmZDNmZTE4MjM1M2QyNjUmZT0xNzg5NDg0NDAw/014/495/0731/502911_090804rsy62h5w22e1db4c_Z.jpg", "photo_ascii": "Olivera_Bozovic_I207.jpg", "photo_orig": "Olivera_Bozovic_I207.jpg", "photo": "Olivera_Bozovic_I207.jpg"}, {"id": "@I208@", "name": "Safet Ahmeti", "gender": "M", "birth_full": "1967-12-15", "death_full": "", "birth_year": "1967", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Dr. Magistar istorije umetnosti. Suprug Nataše Dimitrovske.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTgyYzRkMWZjYzc0ZDBjMWMwYTEyMTVlZDY1OWVlMDU2MTA4N2I0YjdiNTcwNmU3MjkxNTg3ZjA0MWU0YzIwZGImZT0xNzg5NDg0NDAw/014/495/0731/503071_260534cmcrel8y9426e4af_D.jpg", "photo_ascii": "Safet_Ahmeti_I208.jpg", "photo_orig": "Safet_Ahmeti_I208.jpg", "photo": "Safet_Ahmeti_I208.jpg"}, {"id": "@I211@", "name": "Spasa Spasic", "gender": "M", "birth_full": "1840", "death_full": "1872", "birth_year": "1840", "death_year": "1872", "birth_place": "selo Bukovo, Bitolj", "death_place": "", "is_deceased": true, "notes": "Deda Todora Spasića. Praotac.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I212@", "name": "Olgica Bauk", "gender": "F", "birth_full": "1960-09-01", "death_full": "1997", "birth_year": "1960", "death_year": "1997", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Ćerka Vasilija i Juliane.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTlhZWM4ZmQzZjIzZWIwY2RiNDA4ODA1ZGMyMGZkYzFkMjI4MGIwYzZlYTY4N2M4N2E1ZmMzNTRlYTE3YTUyYWEmZT0xNzg5NDg0NDAw/014/495/0731/502751_4905222w44ze23rucb15d4_Z.jpg", "photo_ascii": "Olgica_Bauk_I212.jpg", "photo_orig": "Olgica_Bauk_I212.jpg", "photo": "Olgica_Bauk_I212.jpg"}, {"id": "@I213@", "name": "N.N Spasic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Spase Spasića.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I228@", "name": "Gina Ivanov", "gender": "F", "birth_full": "1977", "death_full": "", "birth_year": "1977", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Asena Seonča Ivanova.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I232@", "name": "Kale Kristoffer-Steven Dean Ivanov", "gender": "M", "birth_full": "2010", "death_full": "", "birth_year": "2010", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Gine Ivanov.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I233@", "name": "Chad Kristiffer Dean", "gender": "M", "birth_full": "1979", "death_full": "", "birth_year": "1979", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Gine Ivanov.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I234@", "name": "Marcus Kiro Ivanov", "gender": "M", "birth_full": "1973", "death_full": "", "birth_year": "1973", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Asena Seonča Ivanova.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I235@", "name": "Judith (Ivanov)", "gender": "F", "birth_full": "1960", "death_full": "", "birth_year": "1960", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Asena Seonča Ivanova (druga).", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I236@", "name": "Kira Faye Ivanov", "gender": "F", "birth_full": "1990", "death_full": "", "birth_year": "1990", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Asena Seonča i Judith.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I237@", "name": "Asen Kiro Ivanov", "gender": "M", "birth_full": "1989", "death_full": "", "birth_year": "1989", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Asena Seonča i Judith.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I238@", "name": "Kiro Alexander Ivanov", "gender": "M", "birth_full": "2004", "death_full": "", "birth_year": "2004", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Markusa Kire Ivanova.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I239@", "name": "Majka od Kiro Alexander", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Markusa Kire.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I240@", "name": "Marika Dimitrovska", "gender": "F", "birth_full": "1996-08-28", "death_full": "", "birth_year": "1996", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Konstantina i Jane.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTI5N2Y2NGI2YzhhZTk1NmU5YmFiMzU0YTRmY2ZmMDUwNmJmNmZhYzcxYjgwOGJjODljMWRhNzhjNmI2MTkwYTMmZT0xNzg5NDg0NDAw/014/495/0731/503011_228906z20fe2678g4fc21g_D.jpg", "photo_ascii": "Marika_Dimitrovska_I240.jpg", "photo_orig": "Marika_Dimitrovska_I240.jpg", "photo": "Marika_Dimitrovska_I240.jpg"}, {"id": "@I241@", "name": "Arijana Dimitrovska", "gender": "F", "birth_full": "1997-11-17", "death_full": "", "birth_year": "1997", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Arijana Ahmeti. Ćerka Nataše i Safeta Ahmetija.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTg3OWQwYTc0OWM0YTY4NWRhODZmYzcyMTU4NGE0YTM5M2JhNzA1OWI5ZTllODViZGYwY2E3MmIzZjdkZDYwYjImZT0xNzg5NDg0NDAw/014/495/0731/503051_3867828ef6r464cc2febgh_D.jpg", "photo_ascii": "Arijana_Dimitrovska_I241.jpg", "photo_orig": "Arijana_Dimitrovska_I241.jpg", "photo": "Arijana_Dimitrovska_I241.jpg"}, {"id": "@I242@", "name": "Leona Ahmeti", "gender": "F", "birth_full": "2000-07-26", "death_full": "", "birth_year": "2000", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Nataše i Safeta Ahmetija.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTllMTU3MDU5YzQwNTkzYTI1MTE4MTAwNzA4MzY4ODhiYmY2NTU4OGMzNGNlM2UwMWIyYzhkMjIxNDk1OTk5ZmImZT0xNzg5NDg0NDAw/014/495/0731/503031_5503093ch94e22fi8a196a_D.jpg", "photo_ascii": "Leona_Ahmeti_I242.jpg", "photo_orig": "Leona_Ahmeti_I242.jpg", "photo": "Leona_Ahmeti_I242.jpg"}, {"id": "@I243@", "name": "Gordana Bauk", "gender": "F", "birth_full": "1900", "death_full": "1979", "birth_year": "1900", "death_year": "1979", "birth_place": "Lastva Grbaljska", "death_place": "Lastva Grbaljska", "is_deceased": true, "notes": "Sestra Antonija Bauka. Poginula u saobraćajnoj nesreći.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTAwOGFiZDU5N2RlOTA3YzBiOWU0ZjZiMzZjNDgwNGY0NmE5NDZlOGRkMjkzNGZjZDY3MWIxMjI3MTUwMTE0ZjMmZT0xNzg5NDg0NDAw/014/495/0731/503321_950782o62254o64ped00de_Z.jpg", "photo_ascii": "Gordana_Bauk_I243.jpg", "photo_orig": "Gordana_Bauk_I243.jpg", "photo": "Gordana_Bauk_I243.jpg"}, {"id": "@I244@", "name": "Natasa Cvetanovic", "gender": "F", "birth_full": "1958-08-27", "death_full": "", "birth_year": "1958", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ista kao I55 (duplirana u GEDCOM-u).", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTExMmJiNzkxZGExMDFiMTFiMjI0Nzc3ZjIzYWZmODQ4NmRiODQ3M2U5OGRmMWI5YTQxMTUzMWIxZDI0MjQzMDkmZT0xNzg5NDg0NDAw/014/495/0731/503261_548975485eb781abjd21r6_Z.jpg", "photo_ascii": "Natasa_Cvetanovic_I244.jpg", "photo_orig": "Natasa_Cvetanovic_I244.jpg", "photo": "Natasa_Cvetanovic_I244.jpg"}, {"id": "@I245@", "name": "Ognjen Spasic", "gender": "M", "birth_full": "1984-07-17", "death_full": "", "birth_year": "1984", "death_year": "", "birth_place": "Beograd-bolnica Dragiša Mišović", "death_place": "", "is_deceased": false, "notes": "Sin Zorana Spasića i Nataše Cvetanović.", "email": "ospasic@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTg5Y2RiOWJlNzc0ZWFiMzliN2YwZjNjYmY4MTBlMzNjMjNmNTY0ODNiZGRiOWJkODY5YmQ5MWQyN2I3YTRhZjcmZT0xNzg5NDg0NDAw/014/495/0731/503221_524902l621bg4sdehey6ba_Z.jpg", "photo_ascii": "Ognjen_Spasic_I245.jpg", "photo_orig": "Ognjen_Spasic_I245.jpg", "photo": "Ognjen_Spasic_I245.jpg"}, {"id": "@I246@", "name": "Milica Stankovic", "gender": "F", "birth_full": "1985-09-28", "death_full": "", "birth_year": "1985", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Supruga Ognjena Spasića. Ista kao I202.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWNhNmVhMTQ0OGRmYmEzYTk1NTU5YzQ1MDkwZjkwOWFmYWRiMzIyNGYxMWY4YWY0ZDc4M2E3NmU1MWQ2ZmU2ZWImZT0xNzg5NDg0NDAw/014/495/0731/503241_052445v9sgf17bd4cba2e1_Z.jpg", "photo_ascii": "Milica_Stankovic_I246.jpg", "photo_orig": "Milica_Stankovic_I246.jpg", "photo": "Milica_Stankovic_I246.jpg"}, {"id": "@I248@", "name": "Nebojsa Stankovic", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac Milice Stanković.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I250@", "name": "Gordana Skevelic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Stanković. Majka Milice Stanković.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500001@", "name": "Mirjana Spasic", "gender": "F", "birth_full": "1926-03-01", "death_full": "1930-11-01", "birth_year": "1926", "death_year": "1930", "birth_place": "Bitolj", "death_place": "Bitolj", "is_deceased": true, "notes": "Ćerka Todora i Vere. Umrla od difterije (krup). Sahranjena u Bitolju.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTc0MzM0MzFkOGMwM2M0YTMzNzMwMjM3YjNkMTg4MWUxOTIzN2QwNDQxMTkxYzkxNDMwOWJlZTRlOTU5MDg2YzMmZT0xNzg5NDg0NDAw/014/495/0731/503749_2735884lh2c6050a25c485_F.jpg", "photo_ascii": "Mirjana_Spasic_I500001.jpg", "photo_orig": "Mirjana_Spasic_I500001.jpg", "photo": "Mirjana_Spasic_I500001.jpg"}, {"id": "@I500007@", "name": "Lazar Jovanovic", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac Marice Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500013@", "name": "Vaso Piper", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Brat Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500014@", "name": "Jelka Piper", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500015@", "name": "Djordje Arabadjijev", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Ivanke i Ivana Arabadjijeva.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTAxOTA4MGE0ODg4NWU3ZTI4ODg3Y2Y2ZWU1MWMyNGNkZGM5MjljZDYzNzMwZWNkNjEzYjQ2Y2ViZDIyN2ZkNmEmZT0xNzg5NDg0NDAw/014/495/0731/503947_906563r2ab62fp81w91657_A.jpg", "photo_ascii": "Djordje_Arabadjijev_I500015.jpg", "photo_orig": "Djordje_Arabadjijev_I500015.jpg", "photo": "Djordje_Arabadjijev_I500015.jpg"}, {"id": "@I500016@", "name": "Jovo Piper", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Brat Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500017@", "name": "Kiko Piper", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Olge Piper. Sahranjena na Novom groblju u Beogradu.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500018@", "name": "Ivana", "gender": "F", "birth_full": "1976-05-01", "death_full": "", "birth_year": "1976", "death_year": "", "birth_place": "Skoplje", "death_place": "", "is_deceased": false, "notes": "Arhitekta. Udata Dimitrovska. Supruga Konstantina.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWRiMjI3ZGVmY2QzYzg4OTAxMDhhOGNjMTRiM2U3ZDQ3ODc5N2M5YTc5N2U1Y2YzNzZmNDY0NGQzMzU0MmIxMzgmZT0xNzg5NDg0NDAw/014/495/0731/503864_920965a17e6r68375v95o4_Z.jpg", "photo_ascii": "Ivana_I500018.jpg", "photo_orig": "Ivana_I500018.jpg", "photo": "Ivana_I500018.jpg"}, {"id": "@I500019@", "name": "Ina Dimitrovski", "gender": "F", "birth_full": "2013-01-18", "death_full": "", "birth_year": "2013", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Konstantina i Ivane.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTYyNjhmMTFhMjM1ZmE5MjU5NWRmZTRlY2MxYmI2MjUzOTY2ZTdmYWY1Nzg0N2MwM2ExM2U3ODI5NTIwYTI1ZWUmZT0xNzg5NDg0NDAw/014/495/0731/503866_25885767fk51v6ae3266bi_Z.jpg", "photo_ascii": "Ina_Dimitrovski_I500019.jpg", "photo_orig": "Ina_Dimitrovski_I500019.jpg", "photo": "Ina_Dimitrovski_I500019.jpg"}, {"id": "@I500020@", "name": "Milica Curcic", "gender": "F", "birth_full": "1924", "death_full": "2010", "birth_year": "1924", "death_year": "2010", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Sestra Borislava Ćurčića.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500021@", "name": "Ankica Curcic", "gender": "F", "birth_full": "1928", "death_full": "2005", "birth_year": "1928", "death_year": "2005", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Sestra Borislava. Udata Petrić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500022@", "name": "Nedeljka Curcic", "gender": "F", "birth_full": "1930", "death_full": "2009", "birth_year": "1930", "death_year": "2009", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Sestra Borislava. Udata Holovac.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500023@", "name": "Desa Curcic", "gender": "F", "birth_full": "1929", "death_full": "2007", "birth_year": "1929", "death_year": "2007", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Dr. Sestra Borislava Ćurčića.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500024@", "name": "Andjelija Piper", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500025@", "name": "Angelina Miletic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Juliane Miletić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500026@", "name": "Danica Miletic", "gender": "F", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sestra Juliane Miletić.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500031@", "name": "Vanja Vuksanovic", "gender": "M", "birth_full": "2008-11-04", "death_full": "", "birth_year": "2008", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Miloša i Olivere.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTg3YzBhMDlhMThiNDM5OGY5NTc3MDU2NmQwM2QyYjZkNmI4YmJhODJhYTY0ZWY4NGE3YzkzMmNhYTBkZTJjOTEmZT0xNzg5NDg0NDAw/014/495/0731/503855_6185131593bjta570a56c6_Z.jpg", "photo_ascii": "Vanja_Vuksanovic_I500031.jpg", "photo_orig": "Vanja_Vuksanovic_I500031.jpg", "photo": "Vanja_Vuksanovic_I500031.jpg"}, {"id": "@I500032@", "name": "Pavle Vuksanovic", "gender": "M", "birth_full": "2010-05-25", "death_full": "", "birth_year": "2010", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Miloša i Olivere.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTQyNGZkYTgyNTlhMmNiOTczMzk1NDEwYTZlMWU4YTE0ZjI1OGQyM2VlNDkwZjI1ODViMjY3ZmI1NTM1YjcyZWImZT0xNzg5NDg0NDAw/014/495/0731/503857_7657813k5u17a0fe5fxa1g_P.jpg", "photo_ascii": "Pavle_Vuksanovic_I500032.jpg", "photo_orig": "Pavle_Vuksanovic_I500032.jpg", "photo": "Pavle_Vuksanovic_I500032.jpg"}, {"id": "@I500033@", "name": "Natalija Petkovski", "gender": "F", "birth_full": "2010-08-05", "death_full": "", "birth_year": "2010", "death_year": "", "birth_place": "Kotor", "death_place": "", "is_deceased": false, "notes": "Ćerka Martine i Dejana.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTgyZTFmNWZmZWJjMmZmMGM3ZDM2NDQxMDQwN2RkZWE3Nzk4OWY3ZTJkMWY2YWFmNmY2ZjM3ZWUzZjFjODYwN2EmZT0xNzg5NDg0NDAw/014/495/0731/503862_823900ta071c7e3i065163_W.jpg", "photo_ascii": "Natalija_Petkovski_I500033.jpg", "photo_orig": "Natalija_Petkovski_I500033.jpg", "photo": "Natalija_Petkovski_I500033.jpg"}, {"id": "@I500034@", "name": "Mirjam Petkovski", "gender": "F", "birth_full": "2015-03-26", "death_full": "", "birth_year": "2015", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Ćerka Martine i Dejana.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWIzZDM5NGIyMDExZDFlZmE1YjZiZmQxZDRhZDcyMWVkMjlmNmQ1MWMwMDIwYzA4NzRiMzY4NWQ5YWFmNGE4MzMmZT0xNzg5NDg0NDAw/014/495/0731/503861_073715tan571v06451zc3a_W.jpg", "photo_ascii": "Mirjam_Petkovski_I500034.jpg", "photo_orig": "Mirjam_Petkovski_I500034.jpg", "photo": "Mirjam_Petkovski_I500034.jpg"}, {"id": "@I500035@", "name": "William Henry Carroll", "gender": "M", "birth_full": "1896-03-23", "death_full": "1966-07-16", "birth_year": "1896", "death_year": "1966", "birth_place": "", "death_place": "", "is_deceased": true, "notes": "Otac Dejvida Karola.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500036@", "name": "James E. Carroll", "gender": "M", "birth_full": "1850-05-14", "death_full": "1923-02-27", "birth_year": "1850", "death_year": "1923", "birth_place": "Lowell, Mass", "death_place": "Simpson, Minn", "is_deceased": true, "notes": "Deda Dejvida Karola.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500037@", "name": "Elizabeth Cocheran", "gender": "F", "birth_full": "1857", "death_full": "1928", "birth_year": "1857", "death_year": "1928", "birth_place": "Springfield, Ohio", "death_place": "", "is_deceased": true, "notes": "Udata Carroll. Baba Dejvida Karola.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500151@", "name": "Strahinja Spasic", "gender": "M", "birth_full": "2012-07-10", "death_full": "", "birth_year": "2012", "death_year": "", "birth_place": "Beograd", "death_place": "", "is_deceased": false, "notes": "Praunuk Todora Spasića. Sin Ognjena Spasića.", "email": "stralepale.generation@gmail.com", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWI4ODE2NTUzZTIxYzk3Yzk1MTU5ZjcxZWM4MDNlNDU5N2NjM2FjM2FjZmNhMjI2YjgzNDcxZTA5OWI3NGY0YmMmZT0xNzg5NDg0NDAw/014/495/0731/503850_99657445w3ea69l67x6961_Y.jpg", "photo_ascii": "Strahinja_Spasic_I500151.jpg", "photo_orig": "Strahinja_Spasic_I500151.jpg", "photo": "Strahinja_Spasic_I500151.jpg"}, {"id": "@I500153@", "name": "Blake Raina Baudinet", "gender": "M", "birth_full": "2018-09-29", "death_full": "", "birth_year": "2018", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Sin Maje Rouz i Breta.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTI1NzA5NTBlNzgwYzgyZDBmNGYzNjZhNmMxMTNkY2IxZGZlOGQ4YzMxZTZmMjcyNTlhMTliMTZmOGNkYmVjZWImZT0xNzg5NDg0NDAw/014/495/0731/503881_34682535h6lza9nc55e4cm_F.jpg", "photo_ascii": "Blake_Raina_Baudinet_I500153.jpg", "photo_orig": "Blake_Raina_Baudinet_I500153.jpg", "photo": "Blake_Raina_Baudinet_I500153.jpg"}, {"id": "@I500154@", "name": "Anja Spasic", "gender": "F", "birth_full": "2019-06-22", "death_full": "", "birth_year": "2019", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Praunuka Todora. Ćerka Ognjena Spasića.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTU5OTE3MzAxNDVjNmM1NzYzN2I0YzAzMzJjZGRmOTRlZjNiYmQ5Yjk3NzFjYjE2MzI0NjI0MjkyNmRkOTNkN2ImZT0xNzg5NDg0NDAw/014/495/0731/503920_0029296672174wda76ia9x_A.jpg", "photo_ascii": "Anja_Spasic_I500154.jpg", "photo_orig": "Anja_Spasic_I500154.jpg", "photo": "Anja_Spasic_I500154.jpg"}, {"id": "@I500159@", "name": "Rebeka Petkovski", "gender": "F", "birth_full": "2019-07-30", "death_full": "", "birth_year": "2019", "death_year": "", "birth_place": "Nikšić", "death_place": "", "is_deceased": false, "notes": "Ćerka Martine i Dejana.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWQ4NjYzMzVkM2EzNzBjOTZiZGY2MjNiMzdmYzAyZDA1YTAyZjJiNzJmYWNhYWU1ZWFiZDRiOWRjNGJhNjQ3YjQmZT0xNzg5NDg0NDAw/014/495/0731/503888_81289358g936p0e501tw50_V.jpg", "photo_ascii": "Rebeka_Petkovski_I500159.jpg", "photo_orig": "Rebeka_Petkovski_I500159.jpg", "photo": "Rebeka_Petkovski_I500159.jpg"}, {"id": "@I500160@", "name": "Jackson David Newman", "gender": "M", "birth_full": "2020-08-23", "death_full": "", "birth_year": "2020", "death_year": "", "birth_place": "Chicago", "death_place": "", "is_deceased": false, "notes": "Sin Elizabete i Edvarda.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWEzNWZiYzRiNzJkYjZmNGMzNDhlYmYyZTE2MDM0NDY3NmU1ZjdkNTc3ZWM1YWE1ZjM4MjdlNGJkYjViMjM4ODMmZT0xNzg5NDg0NDAw/014/495/0731/503893_594485e4mf87c469r0a528_R.jpg", "photo_ascii": "Jackson_David_Newman_I500160.jpg", "photo_orig": "Jackson_David_Newman_I500160.jpg", "photo": "Jackson_David_Newman_I500160.jpg"}, {"id": "@I500161@", "name": "Darjan Dimitrovski", "gender": "M", "birth_full": "2020-03-20", "death_full": "", "birth_year": "2020", "death_year": "", "birth_place": "Skoplje", "death_place": "", "is_deceased": false, "notes": "Sin Konstantina i Ivane.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500162@", "name": "Vasil Gjakonovski", "gender": "M", "birth_full": "", "death_full": "", "birth_year": "", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Otac kompozitora Dragana Gjakonovskog.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500167@", "name": "Jefto Piper", "gender": "M", "birth_full": "1814", "death_full": "1867-05-09", "birth_year": "1814", "death_year": "1867", "birth_place": "Kotor", "death_place": "Kotor", "is_deceased": true, "notes": "Deda Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500168@", "name": "Aneta Paprenica", "gender": "F", "birth_full": "1831", "death_full": "1904-12-23", "birth_year": "1831", "death_year": "1904", "birth_place": "", "death_place": "Kotor", "is_deceased": true, "notes": "Udata Piper. Baba Olge Piper.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500179@", "name": "Andrea Vajda", "gender": "F", "birth_full": "1977", "death_full": "", "birth_year": "1977", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Udata Bauk. Supruga Duleta Bauka.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500180@", "name": "Eric Chien", "gender": "M", "birth_full": "1991-10-17", "death_full": "", "birth_year": "1991", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Kristine Tester.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500181@", "name": "Joseph Ginsburg", "gender": "M", "birth_full": "1992-05-26", "death_full": "", "birth_year": "1992", "death_year": "", "birth_place": "Minneapolis, MN", "death_place": "", "is_deceased": false, "notes": "Suprug Annalise Tester.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500182@", "name": "Theodore Robert Chien", "gender": "M", "birth_full": "2023-11-19", "death_full": "", "birth_year": "2023", "death_year": "", "birth_place": "St. Cloud, Minnesota", "death_place": "", "is_deceased": false, "notes": "Sin Kristine i Erika.", "email": "", "photo_url": "", "photo_ascii": "", "photo_orig": "", "photo": ""}, {"id": "@I500142@", "name": "Brett Raina Baudinet", "gender": "M", "birth_full": "1981-11-01", "death_full": "", "birth_year": "1981", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Maje Rouz.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPWU2YzZlOTlkMDllNTA0OTQ3ZDFmNDIwZDFiNDM4YTJhODllOWEyYTE2OTg4MDYzNjliMGE2NjA5NmY5ODM1MmUmZT0xNzg5NDg0NDAw/014/495/0731/503818_69617462k1bfd6546812dm_X.jpg", "photo_ascii": "Brett_Raina_Baudinet_I500142.jpg", "photo_orig": "Brett_Raina_Baudinet_I500142.jpg", "photo": "Brett_Raina_Baudinet_I500142.jpg"}, {"id": "@I500135@", "name": "Edward Paul Newman", "gender": "M", "birth_full": "1987-03-01", "death_full": "", "birth_year": "1987", "death_year": "", "birth_place": "", "death_place": "", "is_deceased": false, "notes": "Suprug Elizabete.", "email": "", "photo_url": "https://sites-cf.mhcache.com/e/1/az1zaXRlc192MSZzPTg5OTZjMzNiMmM2ODMwNjEzN2Y0Yjc3ZWFjOWZhMWFmOTUzNjE3NDk2YzkyYjBiNGY4MTcyNTI0YTljZWZkMjcmZT0xNzg5NDg0NDAw/014/495/0731/503796_42936550qds09j9483d509_P.jpg", "photo_ascii": "Edward_Paul_Newman_I500135.jpg", "photo_orig": "Edward_Paul_Newman_I500135.jpg", "photo": "Edward_Paul_Newman_I500135.jpg"}];
+        const rawFamilies = [{"id": "@F1@", "husband": "@I1@", "wife": "@I2@", "children": ["@I500001@", "@I3@", "@I4@", "@I5@"]}, {"id": "@F2@", "husband": "@I6@", "wife": "@I5@", "children": ["@I7@"]}, {"id": "@F3@", "husband": "@I10@", "wife": "@I7@", "children": ["@I9@"]}, {"id": "@F4@", "husband": "@I12@", "wife": "@I4@", "children": ["@I11@", "@I13@"]}, {"id": "@F5@", "husband": "@I14@", "wife": "@I11@", "children": ["@I15@", "@I16@", "@I17@"]}, {"id": "@F6@", "husband": "@I18@", "wife": "@I13@", "children": ["@I19@", "@I146@"]}, {"id": "@F7@", "husband": "@I21@", "wife": "@I22@", "children": ["@I23@", "@I96@", "@I1@"]}, {"id": "@F8@", "husband": "@I23@", "wife": "@I162@", "children": ["@I25@", "@I29@"]}, {"id": "@F9@", "husband": "@I26@", "wife": "@I25@", "children": ["@I28@", "@I27@"]}, {"id": "@F10@", "husband": "@I30@", "wife": "@I29@", "children": ["@I161@"]}, {"id": "@F11@", "husband": "@I31@", "wife": "@I32@", "children": ["@I12@", "@I37@"]}, {"id": "@F12@", "husband": "@I33@", "wife": "@I34@", "children": ["@I31@", "@I35@", "@I36@"]}, {"id": "@F13@", "husband": "@I38@", "wife": "@I37@", "children": ["@I39@"]}, {"id": "@F14@", "husband": "@I40@", "wife": "@I39@", "children": ["@I41@", "@I42@"]}, {"id": "@F15@", "husband": "@I44@", "wife": "@I35@", "children": ["@I43@", "@I45@"]}, {"id": "@F16@", "husband": "@I36@", "wife": "@I47@", "children": ["@I46@"]}, {"id": "@F17@", "husband": "@I49@", "wife": "@I50@", "children": ["@I48@", "@I18@"]}, {"id": "@F20@", "husband": "@I3@", "wife": "@I53@", "children": ["@I54@", "@I59@"]}, {"id": "@F22@", "husband": "@I54@", "wife": "@I56@", "children": ["@I58@"]}, {"id": "@F23@", "husband": "@I59@", "wife": "@I60@", "children": ["@I61@", "@I62@"]}, {"id": "@F24@", "husband": "@I63@", "wife": "@I64@", "children": ["@I14@", "@I67@", "@I68@", "@I66@", "@I65@"]}, {"id": "@F25@", "husband": "@I71@", "wife": "@I70@", "children": ["@I73@", "@I2@", "@I74@", "@I75@"]}, {"id": "@F26@", "husband": "@I83@", "wife": "@I76@", "children": ["@I90@", "@I53@", "@I91@"]}, {"id": "@F29@", "husband": "@I84@", "wife": "@I46@", "children": []}, {"id": "@F31@", "husband": "@I88@", "wife": "@I89@", "children": ["@I83@", "@I243@"]}, {"id": "@F32@", "husband": "@I90@", "wife": "@I93@", "children": ["@I92@"]}, {"id": "@F33@", "husband": "@I172@", "wife": "@I173@", "children": ["@I124@", "@I60@"]}, {"id": "@F34@", "husband": "@I149@", "wife": "@I96@", "children": ["@I98@"]}, {"id": "@F35@", "husband": "@I100@", "wife": "@I98@", "children": ["@I500015@"]}, {"id": "@F37@", "husband": "@I75@", "wife": "@I104@", "children": ["@I105@", "@I159@", "@I106@"]}, {"id": "@F38@", "husband": "@I108@", "wife": null, "children": ["@I71@"]}, {"id": "@F43@", "husband": "@I115@", "wife": "@I116@", "children": ["@I178@", "@I56@"]}, {"id": "@F48@", "husband": "@I125@", "wife": "@I126@", "children": ["@I500169@", "@I500170@", "@I76@", "@I500013@", "@I500014@", "@I500016@", "@I500017@", "@I500024@"]}, {"id": "@F51@", "husband": "@I92@", "wife": "@I201@", "children": ["@I136@", "@I138@"]}, {"id": "@F52@", "husband": "@I91@", "wife": "@I139@", "children": ["@I212@", "@I140@"]}, {"id": "@F53@", "husband": "@I140@", "wife": "@I142@", "children": ["@I143@"]}, {"id": "@F54@", "husband": "@I144@", "wife": "@I145@", "children": ["@I139@", "@I500025@", "@I500026@"]}, {"id": "@F56@", "husband": "@I151@", "wife": "@I105@", "children": ["@I153@", "@I152@"]}, {"id": "@F58@", "husband": "@I156@", "wife": "@I106@", "children": ["@I157@", "@I158@"]}, {"id": "@F59@", "husband": "@I160@", "wife": "@I159@", "children": ["@I175@", "@I174@", "@I176@", "@I177@"]}, {"id": "@F60@", "husband": "@I74@", "wife": "@I163@", "children": ["@I164@", "@I165@"]}, {"id": "@F62@", "husband": "@I180@", "wife": "@I178@", "children": ["@I179@", "@I181@"]}, {"id": "@F63@", "husband": "@I182@", "wife": "@I183@", "children": ["@I115@"]}, {"id": "@F64@", "husband": "@I184@", "wife": "@I124@", "children": []}, {"id": "@F65@", "husband": "@I153@", "wife": "@I185@", "children": ["@I240@"]}, {"id": "@F66@", "husband": "@I208@", "wife": "@I152@", "children": ["@I241@", "@I242@"]}, {"id": "@F67@", "husband": "@I165@", "wife": "@I190@", "children": ["@I234@", "@I228@"]}, {"id": "@F70@", "husband": "@I198@", "wife": "@I73@", "children": []}, {"id": "@F71@", "husband": "@I199@", "wife": "@I205@", "children": ["@I500020@", "@I500021@", "@I500023@", "@I500022@", "@I6@"]}, {"id": "@F73@", "husband": "@I206@", "wife": "@I158@", "children": ["@I500033@", "@I500034@", "@I500159@"]}, {"id": "@F74@", "husband": "@I157@", "wife": "@I207@", "children": ["@I500031@", "@I500032@"]}, {"id": "@F76@", "husband": "@I211@", "wife": "@I213@", "children": ["@I21@"]}, {"id": "@F77@", "husband": "@I233@", "wife": "@I228@", "children": ["@I232@"]}, {"id": "@F78@", "husband": "@I165@", "wife": "@I235@", "children": ["@I237@", "@I236@"]}, {"id": "@F79@", "husband": "@I234@", "wife": "@I239@", "children": ["@I238@"]}, {"id": "@F80@", "husband": "@I54@", "wife": "@I244@", "children": ["@I245@"]}, {"id": "@F81@", "husband": "@I245@", "wife": "@I246@", "children": ["@I500151@", "@I500154@"]}, {"id": "@F82@", "husband": "@I248@", "wife": "@I250@", "children": ["@I246@"]}, {"id": "@F500001@", "husband": "@I500007@", "wife": "@I500171@", "children": ["@I126@"]}, {"id": "@F500002@", "husband": "@I153@", "wife": "@I500018@", "children": ["@I500019@", "@I500161@"]}, {"id": "@F500005@", "husband": "@I500035@", "wife": null, "children": ["@I500038@", "@I500039@", "@I63@"]}, {"id": "@F500006@", "husband": "@I500036@", "wife": "@I500037@", "children": ["@I500043@", "@I500042@", "@I500035@"]}, {"id": "@F500007@", "husband": "@I500040@", "wife": "@I500041@", "children": ["@I500047@", "@I500048@", "@I500036@", "@I500051@", "@I500052@", "@I500049@", "@I500050@"]}, {"id": "@F500008@", "husband": "@I500038@", "wife": "@I500045@", "children": ["@I500044@"]}, {"id": "@F500009@", "husband": "@I500046@", "wife": null, "children": ["@I500040@"]}, {"id": "@F500010@", "husband": "@I500042@", "wife": "@I500053@", "children": []}, {"id": "@F500011@", "husband": "@I500054@", "wife": "@I500043@", "children": []}, {"id": "@F500012@", "husband": "@I500055@", "wife": null, "children": ["@I500046@"]}, {"id": "@F500013@", "husband": "@I500056@", "wife": "@I500047@", "children": ["@I500058@", "@I500057@", "@I500059@", "@I500060@", "@I500061@"]}, {"id": "@F500014@", "husband": "@I500050@", "wife": "@I500062@", "children": ["@I500063@", "@I500064@", "@I500065@", "@I500066@"]}, {"id": "@F500015@", "husband": "@I500067@", "wife": null, "children": ["@I500055@"]}, {"id": "@F500016@", "husband": "@I500068@", "wife": "@I500069@", "children": ["@I500056@"]}, {"id": "@F500017@", "husband": "@I500057@", "wife": "@I500070@", "children": ["@I500073@", "@I500072@", "@I500074@", "@I500071@"]}, {"id": "@F500018@", "husband": "@I500058@", "wife": "@I500075@", "children": []}, {"id": "@F500105@", "husband": "@I500135@", "wife": "@I16@", "children": ["@I500160@"]}, {"id": "@F500106@", "husband": "@I500135@", "wife": "@I500136@", "children": []}, {"id": "@F500111@", "husband": "@I500141@", "wife": null, "children": ["@I70@"]}, {"id": "@F500112@", "husband": "@I500142@", "wife": "@I15@", "children": ["@I500153@"]}, {"id": "@F500113@", "husband": "@I500145@", "wife": "@I500158@", "children": ["@I22@"]}, {"id": "@F500114@", "husband": "@I500147@", "wife": "@I500148@", "children": ["@I32@"]}, {"id": "@F500117@", "husband": "@I500152@", "wife": null, "children": ["@I500141@"]}, {"id": "@F500119@", "husband": "@I500162@", "wife": "@I500163@", "children": ["@I160@", "@I500164@"]}, {"id": "@F500120@", "husband": "@I160@", "wife": "@I500166@", "children": []}, {"id": "@F500121@", "husband": "@I500167@", "wife": "@I500168@", "children": ["@I125@"]}, {"id": "@F500122@", "husband": "@I500172@", "wife": null, "children": ["@I500007@"]}, {"id": "@F500123@", "husband": "@I500173@", "wife": "@I500174@", "children": ["@I500162@", "@I500176@"]}, {"id": "@F500124@", "husband": "@I160@", "wife": "@I500177@", "children": ["@I500178@"]}, {"id": "@F500125@", "husband": "@I140@", "wife": "@I500179@", "children": []}, {"id": "@F500126@", "husband": "@I500180@", "wife": "@I146@", "children": ["@I500182@"]}, {"id": "@F500127@", "husband": "@I500181@", "wife": "@I19@", "children": []}];
+
+        const CARD_WIDTH = 190;
+        const CARD_HEIGHT = 68;
+        const COUPLE_GAP = 12;
+        const SIBLING_GAP = 30;
+        const RANK_HEIGHT = 140;
+
+        const indMap = {};
+        rawIndividuals.forEach(ind => { indMap[ind.id] = ind; });
+
+        const famMap = {};
+        const spouseFams = {};
+        const parentFam = {};
+
+        rawFamilies.forEach(fam => {
+            famMap[fam.id] = fam;
+            if (fam.husband && indMap[fam.husband]) {
+                if (!spouseFams[fam.husband]) spouseFams[fam.husband] = [];
+                spouseFams[fam.husband].push(fam.id);
+            }
+            if (fam.wife && indMap[fam.wife]) {
+                if (!spouseFams[fam.wife]) spouseFams[fam.wife] = [];
+                spouseFams[fam.wife].push(fam.id);
+            }
+            (fam.children || []).forEach(cId => {
+                if (indMap[cId]) parentFam[cId] = fam.id;
+            });
+        });
+
+        let scale = 1.0;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+        let selectedPersonId = null;
+        let pos = {};
+
+        function handleCardImgError(img, origPhoto, urlPhoto, gender, name) {
+            img.onerror = null;
+            if (origPhoto && img.src !== origPhoto) {
+                img.src = origPhoto;
+            } else if (urlPhoto && img.src !== urlPhoto) {
+                img.src = urlPhoto;
+            } else {
+                const initial = name ? name.charAt(0) : '?';
+                const cls = gender === 'F' ? 'female' : 'male';
+                img.outerHTML = '<div class="card-avatar ' + cls + '">' + initial + '</div>';
+            }
+        }
+
+        function handleDetailImgError(img, origPhoto, urlPhoto, gender, name) {
+            img.onerror = null;
+            if (origPhoto && img.src !== origPhoto) {
+                img.src = origPhoto;
+            } else if (urlPhoto && img.src !== urlPhoto) {
+                img.src = urlPhoto;
+            } else {
+                const initial = name ? name.charAt(0) : '?';
+                const cls = gender === 'F' ? 'female' : 'male';
+                img.outerHTML = '<div class="card-avatar ' + cls + '" style="width:120px;height:120px;font-size:40px;margin:0 auto;">' + initial + '</div>';
+            }
+        }
+
+        function updateTransform() {
+            const canvas = document.getElementById('canvas');
+            canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        function layoutTree() {
+            const treeNodes = document.getElementById('tree-nodes');
+            const svgLines = document.getElementById('svg-lines');
+            treeNodes.innerHTML = '';
+            svgLines.innerHTML = '';
+
+            pos = {};
+
+            function calculateSubtreeWidth(personId, visited) {
+                if (!visited) visited = new Set();
+                if (visited.has(personId)) return CARD_WIDTH;
+                visited.add(personId);
+
+                const fIds = spouseFams[personId] || [];
+                if (fIds.length === 0) return CARD_WIDTH;
+
+                let totalWidth = 0;
+                fIds.forEach((fId) => {
+                    const fam = famMap[fId];
+                    if (!fam) return;
+
+                    const spouseId = fam.husband === personId ? fam.wife : fam.husband;
+                    const hasSpouse = spouseId && indMap[spouseId];
+                    let coupleW = hasSpouse ? (CARD_WIDTH * 2 + COUPLE_GAP) : CARD_WIDTH;
+
+                    let children = (fam.children || []).filter(c => indMap[c]);
+                    let childrenW = 0;
+                    if (children.length > 0) {
+                        children.forEach(cId => {
+                            childrenW += calculateSubtreeWidth(cId, visited) + SIBLING_GAP;
+                        });
+                        childrenW -= SIBLING_GAP;
+                    }
+
+                    const famW = Math.max(coupleW, childrenW);
+                    totalWidth += famW + SIBLING_GAP * 2;
+                });
+
+                return Math.max(CARD_WIDTH, totalWidth - SIBLING_GAP * 2);
+            }
+
+            function positionSubtree(personId, startX, startY, visited) {
+                if (!visited) visited = new Set();
+                if (visited.has(personId)) return;
+                visited.add(personId);
+
+                const fIds = spouseFams[personId] || [];
+                if (fIds.length === 0) {
+                    if (!pos[personId]) pos[personId] = { x: startX, y: startY };
+                    return;
+                }
+
+                let currX = startX;
+                fIds.forEach(fId => {
+                    const fam = famMap[fId];
+                    if (!fam) return;
+
+                    const spouseId = fam.husband === personId ? fam.wife : fam.husband;
+                    const children = (fam.children || []).filter(c => indMap[c]);
+
+                    let childrenTotalWidth = 0;
+                    children.forEach(cId => {
+                        childrenTotalWidth += calculateSubtreeWidth(cId) + SIBLING_GAP;
+                    });
+                    if (children.length > 0) childrenTotalWidth -= SIBLING_GAP;
+
+                    const hasSpouse = spouseId && indMap[spouseId];
+                    let coupleW = hasSpouse ? (CARD_WIDTH * 2 + COUPLE_GAP) : CARD_WIDTH;
+                    let unitWidth = Math.max(coupleW, childrenTotalWidth);
+
+                    let coupleStartX = currX + (unitWidth - coupleW) / 2;
+
+                    if (hasSpouse) {
+                        const hId = fam.husband || personId;
+                        const wId = fam.wife || spouseId;
+                        pos[hId] = { x: coupleStartX, y: startY };
+                        pos[wId] = { x: coupleStartX + CARD_WIDTH + COUPLE_GAP, y: startY };
+                        visited.add(hId);
+                        visited.add(wId);
+                    } else {
+                        pos[personId] = { x: coupleStartX, y: startY };
+                    }
+
+                    if (children.length > 0) {
+                        let childStartX = currX + (unitWidth - childrenTotalWidth) / 2;
+                        children.forEach(cId => {
+                            const cW = calculateSubtreeWidth(cId);
+                            positionSubtree(cId, childStartX, startY + RANK_HEIGHT, visited);
+                            childStartX += cW + SIBLING_GAP;
+                        });
+                    }
+
+                    currX += unitWidth + SIBLING_GAP * 2;
+                });
+            }
+
+            // 1. Position main Spasić tree starting at Spasa Spasić (@I211@)
+            positionSubtree('@I211@', 5000, 1000);
+
+            // 2. Position parent ancestors and their subtrees
+            function positionParentAncestors(personId, visitedAncestors) {
+                if (!visitedAncestors) visitedAncestors = new Set();
+                if (visitedAncestors.has(personId)) return;
+                visitedAncestors.add(personId);
+
+                const pPos = pos[personId];
+                if (!pPos) return;
+                const pfId = parentFam[personId];
+                if (!pfId) return;
+                const pf = famMap[pfId];
+                if (!pf) return;
+
+                const fatherId = pf.husband;
+                const motherId = pf.wife;
+                const parentY = pPos.y - RANK_HEIGHT;
+
+                let fX = pPos.x - (CARD_WIDTH + COUPLE_GAP) / 2;
+                let mX = pPos.x + (CARD_WIDTH + COUPLE_GAP) / 2;
+
+                if (fatherId && indMap[fatherId] && !pos[fatherId]) {
+                    pos[fatherId] = { x: fX, y: parentY };
+                }
+                if (motherId && indMap[motherId] && !pos[motherId]) {
+                    pos[motherId] = { x: mX, y: parentY };
+                }
+
+                // Position siblings and THEIR subtrees!
+                const siblings = (pf.children || []).filter(c => indMap[c] && c !== personId);
+                let sibX = mX + CARD_WIDTH + SIBLING_GAP * 2;
+                siblings.forEach(sId => {
+                    if (!pos[sId]) {
+                        const sW = calculateSubtreeWidth(sId);
+                        positionSubtree(sId, sibX, pPos.y);
+                        sibX += sW + SIBLING_GAP * 2;
+                    }
+                });
+
+                if (fatherId) positionParentAncestors(fatherId, visitedAncestors);
+                if (motherId) positionParentAncestors(motherId, visitedAncestors);
+            }
+
+            rawIndividuals.forEach(ind => {
+                positionParentAncestors(ind.id);
+            });
+
+            // Standalone fallback
+            let standaloneX = 100;
+            rawIndividuals.forEach(ind => {
+                if (!pos[ind.id]) {
+                    pos[ind.id] = { x: standaloneX, y: 1000 };
+                    standaloneX += CARD_WIDTH + SIBLING_GAP;
+                }
+            });
+
+            // Shift so minY starts at 120px and minX starts at 100px
+            let minX = Infinity, minY = Infinity;
+            Object.values(pos).forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+            });
+
+            const offsetX = 100 - minX;
+            const offsetY = 120 - minY;
+
+            Object.values(pos).forEach(p => {
+                p.x += offsetX;
+                p.y += offsetY;
+            });
+
+            // Multi-pass collision resolution engine for zero overlaps
+            const byY = {};
+            Object.keys(pos).forEach(pId => {
+                const y = pos[pId].y;
+                if (!byY[y]) byY[y] = [];
+                byY[y].push(pId);
+            });
+
+            for (let pass = 0; pass < 8; pass++) {
+                Object.keys(byY).forEach(yVal => {
+                    const rowIds = byY[yVal];
+                    rowIds.sort((a, b) => pos[a].x - pos[b].x);
+                    for (let i = 0; i < rowIds.length - 1; i++) {
+                        const c1 = rowIds[i];
+                        const c2 = rowIds[i + 1];
+                        const overlap = (pos[c1].x + CARD_WIDTH + SIBLING_GAP) - pos[c2].x;
+                        if (overlap > 0) {
+                            for (let j = i + 1; j < rowIds.length; j++) {
+                                pos[rowIds[j]].x += overlap;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Compute SVG bounds
+            let maxX = -Infinity, maxY = -Infinity;
+            Object.values(pos).forEach(p => {
+                if (p.x + CARD_WIDTH > maxX) maxX = p.x + CARD_WIDTH;
+                if (p.y + CARD_HEIGHT > maxY) maxY = p.y + CARD_HEIGHT;
+            });
+
+            const svgW = Math.max(window.innerWidth * 2, maxX + 500);
+            const svgH = Math.max(window.innerHeight * 2, maxY + 500);
+
+            svgLines.setAttribute('width', svgW);
+            svgLines.setAttribute('height', svgH);
+
+            // Render SVG connecting lines for ALL 90 families
+            rawFamilies.forEach(fam => {
+                const h = pos[fam.husband];
+                const w = pos[fam.wife];
+
+                let midX = 0;
+                let midY = 0;
+
+                if (h && w) {
+                    const hRightX = h.x + CARD_WIDTH;
+                    const hMidY = h.y + CARD_HEIGHT / 2;
+                    const wLeftX = w.x;
+                    const wMidY = w.y + CARD_HEIGHT / 2;
+
+                    const coupleLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    coupleLine.setAttribute('x1', hRightX);
+                    coupleLine.setAttribute('y1', hMidY);
+                    coupleLine.setAttribute('x2', wLeftX);
+                    coupleLine.setAttribute('y2', wMidY);
+                    coupleLine.setAttribute('stroke', '#2c3e50');
+                    coupleLine.setAttribute('stroke-width', '2.5');
+                    coupleLine.setAttribute('stroke-dasharray', 'none');
+                    svgLines.appendChild(coupleLine);
+
+                    midX = (hRightX + wLeftX) / 2;
+                    midY = hMidY;
+                } else if (h) {
+                    midX = h.x + CARD_WIDTH / 2;
+                    midY = h.y + CARD_HEIGHT;
+                } else if (w) {
+                    midX = w.x + CARD_WIDTH / 2;
+                    midY = w.y + CARD_HEIGHT;
+                }
+
+                if ((fam.children || []).length > 0) {
+                    const validKids = fam.children.filter(cId => pos[cId]);
+                    if (validKids.length > 0) {
+                        const parentVert = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        parentVert.setAttribute('x1', midX);
+                        parentVert.setAttribute('y1', midY);
+                        parentVert.setAttribute('x2', midX);
+                        parentVert.setAttribute('y2', midY + RANK_HEIGHT / 2);
+                        parentVert.setAttribute('stroke', '#2c3e50');
+                        parentVert.setAttribute('stroke-width', '2.5');
+                        parentVert.setAttribute('stroke-dasharray', 'none');
+                        svgLines.appendChild(parentVert);
+
+                        let minKidX = Infinity;
+                        let maxKidX = -Infinity;
+
+                        validKids.forEach(cId => {
+                            const kPos = pos[cId];
+                            const kTopX = kPos.x + CARD_WIDTH / 2;
+                            if (kTopX < minKidX) minKidX = kTopX;
+                            if (kTopX > maxKidX) maxKidX = kTopX;
+
+                            const childVert = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            childVert.setAttribute('x1', kTopX);
+                            childVert.setAttribute('y1', midY + RANK_HEIGHT / 2);
+                            childVert.setAttribute('x2', kTopX);
+                            childVert.setAttribute('y2', kPos.y);
+                            childVert.setAttribute('stroke', '#2c3e50');
+                            childVert.setAttribute('stroke-width', '2.5');
+                            childVert.setAttribute('stroke-dasharray', 'none');
+                            svgLines.appendChild(childVert);
+                        });
+
+                        const horizLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        horizLine.setAttribute('x1', Math.min(midX, minKidX));
+                        horizLine.setAttribute('y1', midY + RANK_HEIGHT / 2);
+                        horizLine.setAttribute('x2', Math.max(midX, maxKidX));
+                        horizLine.setAttribute('y2', midY + RANK_HEIGHT / 2);
+                        horizLine.setAttribute('stroke', '#2c3e50');
+                        horizLine.setAttribute('stroke-width', '2.5');
+                        horizLine.setAttribute('stroke-dasharray', 'none');
+                        svgLines.appendChild(horizLine);
+                    }
+                }
+            });
+
+            // Render Cards
+            rawIndividuals.forEach(ind => {
+                const p = pos[ind.id];
+                if (!p) return;
+
+                const card = document.createElement('div');
+                let cardClass = 'card ' + (ind.gender === 'F' ? 'female' : 'male');
+                if (selectedPersonId === ind.id) {
+                    cardClass += ' selected-card';
+                }
+                card.className = cardClass;
+                card.style.left = p.x + 'px';
+                card.style.top = p.y + 'px';
+
+                let photoHtml = '';
+                const escOrig = (ind.photo_orig || '').replace(/'/g, "\'");
+                const escUrl = (ind.photo_url || '').replace(/'/g, "\'");
+                const escName = (ind.name || '').replace(/'/g, "\'");
+
+                if (ind.photo_ascii) {
+                    photoHtml = '<img class="card-photo" src="' + ind.photo_ascii + '" alt="' + escName + '" onerror="handleCardImgError(this, '' + escOrig + '', '' + escUrl + '', '' + ind.gender + '', '' + escName + '')">';
+                } else if (ind.photo_url) {
+                    photoHtml = '<img class="card-photo" src="' + ind.photo_url + '" alt="' + escName + '" onerror="handleCardImgError(this, '', '' + escUrl + '', '' + ind.gender + '', '' + escName + '')">';
+                } else {
+                    const initial = ind.name ? ind.name.charAt(0) : '?';
+                    photoHtml = '<div class="card-avatar ' + (ind.gender === 'F' ? 'female' : 'male') + '">' + initial + '</div>';
+                }
+
+                let yearsText = '';
+                if (ind.birth_year || ind.death_year) {
+                    yearsText = ind.birth_year + (ind.death_year ? ' - ' + ind.death_year : '');
+                }
+
+                card.innerHTML = photoHtml + 
+                    '<div class="card-info">' +
+                    '<div class="card-name">' + ind.name + '</div>' +
+                    '<div class="card-dates">' + yearsText + '</div>' +
+                    '</div>';
+
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectPerson(ind.id);
+                });
+
+                treeNodes.appendChild(card);
+            });
+        }
+
+        function selectPerson(personId) {
+            selectedPersonId = personId;
+            layoutTree();
+            showMemberDetails(personId);
+            centerTreeOnPerson(personId);
+        }
+
+        function centerTreeOnPerson(personId) {
+            const p = pos[personId];
+            if (!p) return;
+
+            const targetX = p.x + CARD_WIDTH / 2;
+            const targetY = p.y + CARD_HEIGHT / 2;
+
+            translateX = window.innerWidth / 2 - targetX * scale;
+            translateY = window.innerHeight / 2 - targetY * scale;
+
+            const canvas = document.getElementById('canvas');
+            canvas.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+            updateTransform();
+            setTimeout(() => { canvas.style.transition = 'transform 0.05s ease-out'; }, 400);
+        }
+
+        function createRelBtn(pId) {
+            const p = indMap[pId];
+            if (!p) return null;
+            const span = document.createElement('span');
+            span.className = 'rel-link';
+            span.textContent = p.name;
+            span.onclick = () => selectPerson(pId);
+            return span;
+        }
+
+        function showMemberDetails(personId) {
+            const ind = indMap[personId];
+            if (!ind) return;
+
+            document.getElementById('sidebar-name').textContent = ind.name;
+
+            const photoBox = document.getElementById('detail-photo-box');
+            const escOrig = (ind.photo_orig || '').replace(/'/g, "\'");
+            const escUrl = (ind.photo_url || '').replace(/'/g, "\'");
+            const escName = (ind.name || '').replace(/'/g, "\'");
+
+            if (ind.photo_ascii) {
+                photoBox.innerHTML = '<img class="detail-photo" src="' + ind.photo_ascii + '" alt="' + escName + '" onerror="handleDetailImgError(this, '' + escOrig + '', '' + escUrl + '', '' + ind.gender + '', '' + escName + '')">';
+            } else if (ind.photo_url) {
+                photoBox.innerHTML = '<img class="detail-photo" src="' + ind.photo_url + '" alt="' + escName + '" onerror="handleDetailImgError(this, '', '' + escUrl + '', '' + ind.gender + '', '' + escName + '')">';
+            } else {
+                const initial = ind.name ? ind.name.charAt(0) : '?';
+                photoBox.innerHTML = '<div class="card-avatar ' + (ind.gender === 'F' ? 'female' : 'male') + '" style="width:120px;height:120px;font-size:40px;margin:0 auto;">' + initial + '</div>';
+            }
+
+            document.getElementById('detail-birth').textContent = (ind.birth_full || ind.birth_year || '-') + (ind.birth_place ? ' (' + ind.birth_place + ')' : '');
+
+            const dBox = document.getElementById('detail-death-box');
+            if (ind.death_full || ind.death_year || ind.is_deceased) {
+                dBox.style.display = 'block';
+                document.getElementById('detail-death').textContent = (ind.death_full || ind.death_year || 'Da') + (ind.death_place ? ' (' + ind.death_place + ')' : '');
+            } else {
+                dBox.style.display = 'none';
+            }
+
+            // Parents
+            const parBox = document.getElementById('detail-parents');
+            parBox.innerHTML = '';
+            const pfId = parentFam[personId];
+            if (pfId && famMap[pfId]) {
+                const pf = famMap[pfId];
+                if (pf.husband && indMap[pf.husband]) parBox.appendChild(createRelBtn(pf.husband));
+                if (pf.wife && indMap[pf.wife]) parBox.appendChild(createRelBtn(pf.wife));
+            }
+            if (!parBox.innerHTML) parBox.textContent = '-';
+
+            // Spouses
+            const spBox = document.getElementById('detail-spouses');
+            spBox.innerHTML = '';
+            const fIds = spouseFams[personId] || [];
+            fIds.forEach(fId => {
+                const fam = famMap[fId];
+                if (fam) {
+                    const sId = fam.husband === personId ? fam.wife : fam.husband;
+                    if (sId && indMap[sId]) spBox.appendChild(createRelBtn(sId));
+                }
+            });
+            if (!spBox.innerHTML) spBox.textContent = '-';
+
+            // Siblings
+            const sibBox = document.getElementById('detail-siblings');
+            sibBox.innerHTML = '';
+            if (pfId && famMap[pfId]) {
+                const pf = famMap[pfId];
+                (pf.children || []).forEach(cId => {
+                    if (cId !== personId && indMap[cId]) sibBox.appendChild(createRelBtn(cId));
+                });
+            }
+            if (!sibBox.innerHTML) sibBox.textContent = '-';
+
+            // Children
+            const chBox = document.getElementById('detail-children');
+            chBox.innerHTML = '';
+            fIds.forEach(fId => {
+                const fam = famMap[fId];
+                if (fam && fam.children) {
+                    fam.children.forEach(cId => {
+                        if (indMap[cId]) chBox.appendChild(createRelBtn(cId));
+                    });
+                }
+            });
+            if (!chBox.innerHTML) chBox.textContent = '-';
+
+            // Notes
+            const nBox = document.getElementById('detail-notes-box');
+            if (ind.notes) {
+                nBox.style.display = 'block';
+                document.getElementById('detail-notes').textContent = ind.notes;
+            } else {
+                nBox.style.display = 'none';
+            }
+
+            document.getElementById('detail-sidebar').classList.add('open');
+        }
+
+        // Event Listeners for Drag and Zoom
+        const appContainer = document.getElementById('app-container');
+
+        appContainer.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#header-panel') || e.target.closest('#detail-sidebar') || e.target.closest('#zoom-controls')) return;
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        appContainer.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#header-panel') || e.target.closest('#detail-sidebar') || e.target.closest('#zoom-controls')) return;
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - translateX;
+                startY = e.touches[0].clientY - translateY;
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            translateX = e.touches[0].clientX - startX;
+            translateY = e.touches[0].clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        // Zoom controls
+        document.getElementById('btn-zoom-in').addEventListener('click', () => { scale = Math.min(scale * 1.25, 2.5); updateTransform(); });
+        document.getElementById('btn-zoom-out').addEventListener('click', () => { scale = Math.max(scale / 1.25, 0.2); updateTransform(); });
+        document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+            scale = 1.0;
+            if (selectedPersonId) centerTreeOnPerson(selectedPersonId);
+            else centerTreeOnPerson('@I1@');
+        });
+
+        // Close Sidebar
+        document.getElementById('close-sidebar').addEventListener('click', () => {
+            document.getElementById('detail-sidebar').classList.remove('open');
+        });
+
+        // Live Search Box
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase().trim();
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            const matches = rawIndividuals.filter(ind => ind.name.toLowerCase().includes(query));
+            searchResults.innerHTML = '';
+
+            if (matches.length > 0) {
+                matches.forEach(m => {
+                    const item = document.createElement('div');
+                    item.className = 'search-item';
+                    item.textContent = m.name + (m.birth_year ? ' (' + m.birth_year + ')' : '');
+                    item.onclick = () => {
+                        searchResults.style.display = 'none';
+                        searchInput.value = m.name;
+                        selectPerson(m.id);
+                    };
+                    searchResults.appendChild(item);
+                });
+                searchResults.style.display = 'block';
+            } else {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // Click on background closes search results and sidebar
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-box')) {
+                searchResults.style.display = 'none';
+            }
+            if (!e.target.closest('#detail-sidebar') && !e.target.closest('.card')) {
+                document.getElementById('detail-sidebar').classList.remove('open');
+            }
+        });
+
+        window.addEventListener('load', () => {
+            layoutTree();
+            centerTreeOnPerson('@I1@');
+        });
+    </script>
+</body>
+</html>
